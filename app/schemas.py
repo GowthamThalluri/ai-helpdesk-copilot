@@ -1,8 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, Field
-
+from pydantic import BaseModel, ConfigDict, Field
 
 class TicketStatus(str, Enum):
     OPEN = "Open"
@@ -29,6 +28,7 @@ class TicketUpdate(BaseModel):
 
 
 class TicketResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     title: str
     description: str

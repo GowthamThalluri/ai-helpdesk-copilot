@@ -1,6 +1,9 @@
-from datetime import datetime, timezone
+from fastapi import Depends, FastAPI, HTTPException, Query, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from fastapi import FastAPI, HTTPException, Query, status
+from app.database import get_db
+from app.models import Ticket
 from app.schemas import (
     TicketCreate,
     TicketPriority,
@@ -14,10 +17,6 @@ app = FastAPI(
     description="API for managing IT support tickets",
     version="0.1.0",
 )
-
-# Temporary in-memory storage.
-# PostgreSQL will replace this in a later stage.
-tickets: list[TicketResponse] = []
 
 
 @app.get("/")
@@ -40,53 +39,20 @@ def list_tickets(
         default=None,
         alias="priority",
     ),
+    db: Session = Depends(get_db),
 ):
-    filtered_tickets = tickets
+    statement = select(Ticket)
 
     if ticket_status is not None:
-        filtered_tickets = [
-            ticket
-            for ticket in filtered_tickets
-            if ticket.status == ticket_status
-        ]
+        statement = statement.where(Ticket.status == ticket_status.value)
 
     if ticket_priority is not None:
-        filtered_tickets = [
-            ticket
-            for ticket in filtered_tickets
-            if ticket.priority == ticket_priority
-        ]
+        statement = statement.where(
+            Ticket.priority == ticket_priority.value
+        )
 
-    return filtered_tickets
-
-
-@app.get("/tickets/{ticket_id}", response_model=TicketResponse)
-def get_ticket(ticket_id: int):
-    for ticket in tickets:
-        if ticket.id == ticket_id:
-            return ticket
-
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Ticket not found",
-    )
-    filtered_tickets = tickets
-
-    if ticket_status is not None:
-        filtered_tickets = [
-            ticket
-            for ticket in filtered_tickets
-            if ticket.status == ticket_status
-        ]
-
-    if ticket_priority is not None:
-        filtered_tickets = [
-            ticket
-            for ticket in filtered_tickets
-            if ticket.priority == ticket_priority
-        ]
-
-    return filtered_tickets
+    statement = statement.order_by(Ticket.id)
+    return list(db.scalars(statement).all())
 
 
 @app.post(
@@ -94,51 +60,68 @@ def get_ticket(ticket_id: int):
     response_model=TicketResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_ticket(ticket_data: TicketCreate):
-    new_ticket = TicketResponse(
-        id=len(tickets) + 1,
+def create_ticket(
+    ticket_data: TicketCreate,
+    db: Session = Depends(get_db),
+):
+    new_ticket = Ticket(
         title=ticket_data.title,
         description=ticket_data.description,
         category=ticket_data.category,
-        priority=ticket_data.priority,
-        status=TicketStatus.OPEN,
-        created_at=datetime.now(timezone.utc),
+        priority=ticket_data.priority.value,
+        status=TicketStatus.OPEN.value,
     )
 
-    tickets.append(new_ticket)
+    db.add(new_ticket)
+    db.commit()
+    db.refresh(new_ticket)
+
     return new_ticket
 
 
-@app.patch("/tickets/{ticket_id}", response_model=TicketResponse)
-def update_ticket(ticket_id: int, updates: TicketUpdate):
-    # 1. Find the ticket and remember its position.
-    for index, existing_ticket in enumerate(tickets):
-        if existing_ticket.id == ticket_id:
-            break
-    else:
+@app.get("/tickets/{ticket_id}", response_model=TicketResponse)
+def get_ticket(ticket_id: int, db: Session = Depends(get_db)):
+    ticket = db.get(Ticket, ticket_id)
+
+    if ticket is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ticket not found",
         )
 
-    # 2. Extract only the fields supplied in the request.
+    return ticket
+
+
+@app.patch("/tickets/{ticket_id}", response_model=TicketResponse)
+def update_ticket(
+    ticket_id: int,
+    updates: TicketUpdate,
+    db: Session = Depends(get_db),
+):
+    ticket = db.get(Ticket, ticket_id)
+
+    if ticket is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found",
+        )
+
     update_data = updates.model_dump(
         exclude_unset=True,
         exclude_none=True,
+        mode="json",
     )
 
-    # 3. Reject requests that contain no update fields.
     if not update_data:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Provide at least one field to update",
         )
 
-    # 4. Create the updated ticket.
-    updated_ticket = existing_ticket.model_copy(update=update_data)
+    for field, value in update_data.items():
+        setattr(ticket, field, value)
 
-    # 5. Replace the old ticket in temporary storage.
-    tickets[index] = updated_ticket
+    db.commit()
+    db.refresh(ticket)
 
-    # 6. Return the updated ticket.
-    return updated_ticket
+    return ticket
