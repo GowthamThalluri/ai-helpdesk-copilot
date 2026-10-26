@@ -24,8 +24,8 @@
 - Configured PostgreSQL using Docker Desktop and a persistent named volume.
 - Created the SQLAlchemy database model and PostgreSQL connection/session management.
 - Connected the ticket API to PostgreSQL.
-- Verified ticket creation, retrieval, filtering, and updates through the API.
-- Verified ticket data persists after restarting FastAPI.
+- Verified ticket creation, retrieval, filtering, and updates through the API documentation.
+- Verified that ticket data persists after restarting FastAPI.
 - Verified database records directly using PostgreSQL.
 - Committed and pushed the backend and database integration to GitHub.
 
@@ -35,89 +35,90 @@
 - Created the dashboard using HTML and CSS.
 - Added JavaScript for ticket creation, listing, filtering, and updates.
 - Configured FastAPI to serve the frontend and static assets.
-- Verified the dashboard loads on the local machine.
+- Verified that the dashboard loads locally through FastAPI.
 - Tested ticket creation through the UI.
-- Tested status, priority, and combined filters.
+- Tested status filtering, priority filtering, and combined filtering.
 - Tested ticket status and priority updates through the UI.
-- Verified UI changes persist in PostgreSQL.
+- Verified that UI updates persist in PostgreSQL.
 - Committed and pushed the frontend to GitHub.
 
 ## Automated Testing — Completed
 
 ### Completed
-- Added development dependencies in `requirements-dev.txt`.
+- Created `requirements-dev.txt` for development and testing dependencies.
 - Added automated API tests in `tests/test_tickets.py`.
 - Used an isolated in-memory SQLite database so tests do not modify real PostgreSQL data.
 - Tested the health endpoint, ticket creation, listing, filtering, retrieval, updates, and error responses.
+- Tested invalid priorities, short titles, missing required fields, and invalid status filters.
+- Added tests for whitespace-only titles, descriptions, and categories.
 - Resolved the Starlette test-client deprecation warning by updating the test dependencies.
-- Verified all eight tests pass using `python -m pytest -v`.
+- Verified that all 15 automated tests pass using `python -m pytest -v`.
 - Verified dependencies using `python -m pip check`.
-- Committed and pushed the testing milestone to GitHub.
+- Committed and pushed the automated testing milestone to GitHub.
+
+## Application Hardening — Verified Locally
+
+### Completed
+- Added whitespace trimming and validation for ticket creation inputs.
+- Expanded automated tests for invalid requests and validation failures.
+- Documented `400 Bad Request` and `404 Not Found` responses in the FastAPI OpenAPI specification.
+- Added application logging using Python's built-in logging library.
+- Added informational logs for ticket creation and updates.
+- Added warning logs when a requested ticket is not found.
+- Verified that missing-ticket warnings appear in the running application's terminal.
+- Verified Python syntax and confirmed all 15 automated tests pass after the hardening changes.
+
+### Publication Status
+- Application hardening changes have been verified locally.
+- The latest hardening changes and progress documentation still need to be committed and pushed to GitHub.
 
 ## Current Limitations
 
-- Automated tests do not yet cover every validation failure or database error scenario.
-- Logging and error handling need further refinement.
-- The frontend has been manually tested but does not yet have automated browser tests.
-- The FastAPI application has not yet been containerized. PostgreSQL currently runs separately in Docker Desktop.
-- CI/CD, security scanning, cloud deployment, and infrastructure automation are still pending.
-
-## Next Milestone — Application Hardening
-
-- Expand automated tests for invalid input and validation failures.
-- Improve error handling and application logging.
-- Document expected HTTP error responses in the API specification.
-- Verify the complete frontend-to-backend-to-database workflow.
-- Review the application before containerization.
-
+- Database failure and transaction-rollback scenarios need additional testing.
+- The frontend has been tested manually but does not yet have automated browser tests.
+- The FastAPI application has not yet been containerized.
+- PostgreSQL currently runs separately in Docker Desktop; the application is not yet running in its own container.
+- CI/CD, automated security scanning, cloud deployment, and infrastructure automation remain pending.
+- Database schema migrations have not yet been configured.
 
 ## When Core DevOps Engineering Starts
 
-The application foundation is built. The next step is application hardening, followed by the main DevOps delivery and operations workflow.
+The application foundation is built. After the current hardening changes are committed and pushed, the project will move into its first core DevOps milestone.
 
-### Core DevOps Milestones
+### First Core DevOps Milestone — Docker and Docker Compose
 
-1. **Docker and Docker Compose — First Core DevOps Milestone**
-   - Write a Dockerfile for the FastAPI application.
-   - Build and run the application container.
-   - Configure the application and PostgreSQL using Docker Compose.
-   - Handle environment variables, networking, persistent storage, and health checks.
-   - Verify that the application works independently of the local Python development setup.
+- Write a Dockerfile for the FastAPI application.
+- Build the application Docker image.
+- Run the FastAPI application inside a container.
+- Use Docker Compose to run the application and PostgreSQL together.
+- Configure environment variables and keep credentials out of source control.
+- Configure container networking and persistent database storage.
+- Add health checks and verify service readiness.
+- Inspect container logs and troubleshoot startup and connectivity failures.
+- Verify that the application works without relying on the local Python development server.
+- Run automated tests to confirm the application still works after containerization.
 
-2. **CI/CD with GitHub Actions**
-   - Automatically run tests when code is pushed.
-   - Add code-quality and security checks.
-   - Build and tag Docker images.
-   - Automate delivery through a controlled deployment workflow.
+### How This Milestone Will Be Verified
 
-3. **Cloud Deployment and Infrastructure as Code**
-   - Deploy the application to AWS.
-   - Use Terraform to provision infrastructure.
-   - Use Ansible where configuration management is appropriate.
-   - Apply least-privilege access, secrets management, and cost controls.
-
-4. **Kubernetes and Operations**
-   - Deploy the application to Kubernetes.
-   - Configure deployments, services, health probes, and resource limits.
-   - Add monitoring, logging, alerting, and troubleshooting exercises.
-   - Test failure recovery and document what happens.
-
-### Project Readiness Rule
-
-Do not mark a milestone complete merely because configuration files exist. Complete it only after running the relevant commands, testing the result, resolving failures, and documenting the evidence.
-
+Do not mark containerization complete merely because the Dockerfile or Compose file exists. Completion requires:
+- Successfully building the image.
+- Successfully starting the services.
+- Creating and retrieving tickets through the running application.
+- Verifying database persistence.
+- Testing health checks and troubleshooting at least one failure scenario.
+- Documenting the commands used and the observed results.
 
 ## Future DevOps Milestones
 
-1. Complete application validation, error handling, and logging.
-2. Containerize the application and database workflow using Docker and Docker Compose.
-3. Build CI/CD pipelines using GitHub Actions.
-4. Add automated security and code-quality checks.
-5. Deploy the application to AWS.
-6. Introduce Terraform and Ansible for infrastructure automation and configuration management.
-7. Deploy and operate the application on Kubernetes.
-8. Implement monitoring, logging, alerting, and failure troubleshooting.
-9. Evaluate a microservices architecture after the initial application is stable.
+1. **Docker and Docker Compose:** Package and run the application with its database.
+2. **CI/CD with GitHub Actions:** Automatically run tests, quality checks, security checks, and image builds when code changes.
+3. **Security and code quality:** Add appropriate dependency, source-code, and container image scanning.
+4. **AWS deployment:** Deploy the application using an appropriate cloud architecture, with cost and access controls.
+5. **Infrastructure as Code:** Use Terraform to provision infrastructure and Ansible where configuration management is appropriate.
+6. **Kubernetes:** Deploy and operate the application with deployments, services, health probes, and resource limits.
+7. **Monitoring and observability:** Implement metrics, logging, alerting, and troubleshooting.
+8. **Failure testing:** Practise diagnosing failures, recovering services, and verifying persistence.
+9. **Architecture evolution:** Evaluate a microservices architecture only after the initial application is stable.
 
 ## Working Rule
 
@@ -135,4 +136,5 @@ For every milestone:
 - Use Windows Git Bash for Git and development commands.
 - Use the Windows Python virtual environment for Python development.
 - Use Docker Desktop for containers and the local PostgreSQL database.
+- Keep `.env` and all credentials out of Git.
 - Do not use Ubuntu/WSL for this project unless a requirement justifies it and the approach is reviewed first.

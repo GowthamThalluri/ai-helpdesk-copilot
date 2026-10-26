@@ -178,3 +178,92 @@ def test_empty_update_returns_400(client):
     assert response.json()["detail"] == (
         "Provide at least one field to update"
     )
+
+def test_create_ticket_rejects_short_title(client):
+    response = client.post(
+        "/tickets",
+        json={
+            "title": "AB",
+            "description": "Unable to connect to the company VPN.",
+            "category": "Network",
+            "priority": "High",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_ticket_rejects_invalid_priority(client):
+    response = client.post(
+        "/tickets",
+        json={
+            "title": "VPN connection failing",
+            "description": "Unable to connect to the company VPN.",
+            "category": "Network",
+            "priority": "Urgent",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_ticket_rejects_missing_category(client):
+    response = client.post(
+        "/tickets",
+        json={
+            "title": "VPN connection failing",
+            "description": "Unable to connect to the company VPN.",
+            "priority": "High",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_invalid_status_filter_returns_422(client):
+    response = client.get(
+        "/tickets",
+        params={"status": "Waiting"},
+    )
+
+    assert response.status_code == 422
+def test_create_ticket_rejects_whitespace_title(client):
+    response = client.post(
+        "/tickets",
+        json={
+            "title": "   ",
+            "description": "Unable to connect to the company VPN.",
+            "category": "Network",
+            "priority": "High",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_ticket_rejects_whitespace_description(client):
+    response = client.post(
+        "/tickets",
+        json={
+            "title": "VPN connection failing",
+            "description": "     ",
+            "category": "Network",
+            "priority": "High",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_ticket_rejects_whitespace_category(client):
+    response = client.post(
+        "/tickets",
+        json={
+            "title": "VPN connection failing",
+            "description": "Unable to connect to the company VPN.",
+            "category": "   ",
+            "priority": "High",
+        },
+    )
+
+    assert response.status_code == 422

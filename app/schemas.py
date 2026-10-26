@@ -16,6 +16,7 @@ class TicketPriority(str, Enum):
 
 
 class TicketCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     title: str = Field(min_length=3, max_length=120)
     description: str = Field(min_length=5, max_length=2000)
     category: str = Field(min_length=2, max_length=60)
