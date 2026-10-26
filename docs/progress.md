@@ -35,14 +35,12 @@
 - Automated tests have not yet been added.
 - Dockerfiles and the application containerization workflow have not yet been implemented.
 
-## Next Milestone — Frontend Development
+## Next Milestone — Automated Testing and Application Hardening
 
-- Build the ticket dashboard using HTML, CSS, and JavaScript.
-- Create a form for submitting support tickets.
-- Display tickets returned by the FastAPI backend.
-- Add status and priority filters.
-- Allow users to view ticket details and update status or priority.
-- Connect the frontend to the existing API and verify the complete workflow.
+- Add automated backend tests for ticket creation, listing, filtering, retrieval, and updates.
+- Test validation failures and error responses.
+- Improve application validation, error handling, and logging.
+- Verify the complete application workflow before containerization.
 
 ## Future DevOps Milestones
 

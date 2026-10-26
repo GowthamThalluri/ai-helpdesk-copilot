@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AI Helpdesk Copilot</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/app.js" defer></script>
+</head>
+<body>
+    <header class="app-header">
+        <div class="container">
+            <p class="eyebrow">IT SUPPORT WORKSPACE</p>
+            <h1>AI Helpdesk Copilot</h1>
+            <p>Track, prioritize, and resolve support tickets.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="panel" aria-labelledby="create-heading">
+            <p class="eyebrow">NEW REQUEST</p>
+            <h2 id="create-heading">Create a ticket</h2>
+
+            <form id="ticket-form">
+                <label for="title">Title</label>
+                <input id="title" name="title" type="text"
+                       minlength="3" maxlength="120"
+                       placeholder="e.g. VPN connection failing" required>
+
+                <label for="description">Description</label>
+                <textarea id="description" name="description"
+                          minlength="5" maxlength="2000" rows="3"
+                          placeholder="Describe the issue..." required></textarea>
+
+                <div class="form-row">
+                    <div>
+                        <label for="category">Category</label>
+                        <input id="category" name="category" type="text"
+                               minlength="2" maxlength="60"
+                               placeholder="e.g. Network" required>
+                    </div>
+
+                    <div>
+                        <label for="priority">Priority</label>
+                        <select id="priority" name="priority" required>
+                            <option value="" selected disabled>Select priority</option>
+                            <option value="Low">Low</option>
+                            <option value="Medium">Medium</option>
+                            <option value="High">High</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit">Create ticket</button>
+                <p id="form-message" role="status" aria-live="polite"></p>
+            </form>
+        </section>
+
+        <section class="panel" aria-labelledby="tickets-heading">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">SUPPORT WORKSPACE</p>
+                    <h2 id="tickets-heading">Tickets</h2>
+                </div>
+                <button id="refresh-tickets" type="button" class="button-secondary">
+                    Refresh
+                </button>
+            </div>
+
+            <form id="filter-form" class="filter-row">
+                <div>
+                    <label for="status-filter">Status</label>
+                    <select id="status-filter" name="status">
+                        <option value="">All statuses</option>
+                        <option value="Open">Open</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Resolved">Resolved</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="priority-filter">Priority</label>
+                    <select id="priority-filter" name="priority">
+                        <option value="">All priorities</option>
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                    </select>
+                </div>
+
+                <button type="submit">Apply filters</button>
+                <button id="clear-filters" type="button" class="button-secondary">
+                    Clear
+                </button>
+            </form>
+
+            <p id="list-message" role="status" aria-live="polite"></p>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Category</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ticket-table-body">
+                        <tr>
+                            <td colspan="7">Tickets will appear here.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="ticket-details" class="panel"
+                 aria-labelledby="details-heading" hidden>
+            <p class="eyebrow">TICKET MANAGEMENT</p>
+            <h2 id="details-heading">Update ticket</h2>
+            <p id="selected-ticket-label"></p>
+
+            <form id="update-ticket-form">
+                <div class="form-row">
+                    <div>
+                        <label for="update-status">Status</label>
+                        <select id="update-status" name="status" required>
+                            <option value="Open">Open</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Resolved">Resolved</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="update-priority">Priority</label>
+                        <select id="update-priority" name="priority" required>
+                            <option value="Low">Low</option>
+                            <option value="Medium">Medium</option>
+                            <option value="High">High</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit">Save changes</button>
+                <button id="close-details" type="button" class="button-secondary">
+                    Cancel
+                </button>
+                <p id="update-message" role="status" aria-live="polite"></p>
+            </form>
+        </section>
+    </main>
+
+    <footer class="container page-footer">
+        <p>AI Helpdesk Copilot · Local development</p>
+    </footer>
+</body>
+</html>

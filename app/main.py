@@ -1,3 +1,7 @@
+from pathlib import Path
+
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -17,10 +21,23 @@ app = FastAPI(
     description="API for managing IT support tickets",
     version="0.1.0",
 )
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+FRONTEND_DIR = PROJECT_ROOT / "frontend"
+STATIC_DIR = FRONTEND_DIR / "static"
+
+app.mount(
+    "/static",
+    StaticFiles(directory=STATIC_DIR),
+    name="static",
+)
 
 
-@app.get("/")
+@app.get("/", include_in_schema=False)
 def home():
+    return FileResponse(FRONTEND_DIR / "index.html")
+
+@app.get("/api", include_in_schema=False)
+def api_home():
     return {"message": "AI Helpdesk Copilot API is running"}
 
 
