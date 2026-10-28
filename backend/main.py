@@ -1,6 +1,6 @@
 
 from pathlib import Path
-from app.logging_config import logger
+from backend.logging_config import logger
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.responses import FileResponse
@@ -8,9 +8,9 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.database import get_db
-from app.models import Ticket
-from app.schemas import (
+from backend.database import get_db
+from backend.models import Ticket
+from backend.schemas import (
     TicketCreate,
     TicketPriority,
     TicketResponse,

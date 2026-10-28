@@ -111,6 +111,48 @@ Do not mark containerization complete merely because the Dockerfile or Compose f
 ## Future DevOps Milestones
 
 1. **Docker and Docker Compose:** Package and run the application with its database.
+
+## Docker and Docker Compose — Completed Locally
+
+### Docker fundamentals and practical work
+- Learned Docker images, containers, the Docker client, daemon, registries, networks, port publishing, and persistent volumes.
+- Inspected existing Docker images, containers, networks, logs, and container configuration.
+- Diagnosed and recovered the existing PostgreSQL container without deleting its database volume.
+- Verified that all five ticket records remained available after container recovery.
+
+### Application containerization
+- Renamed the backend directory from `app/` to `backend/`.
+- Updated Python imports, the Dockerfile, and the Uvicorn startup module.
+- Created `.dockerignore` to exclude local secrets, virtual environments, test artifacts, Git metadata, and unnecessary documentation.
+- Created a Dockerfile using `python:3.13-slim`.
+- Built the application image `ai-helpdesk-copilot:1.0`, then rebuilt `ai-helpdesk-copilot:1.1` after the backend directory rename.
+- Ran FastAPI in the `ai-helpdesk-app` container.
+- Configured the database hostname and port through environment variables.
+- Published FastAPI on `127.0.0.1:8000`.
+
+### Docker networking and persistence
+- Created the custom network `ai-helpdesk-network`.
+- Connected the existing PostgreSQL container using the network alias `postgres`.
+- Reused the named volume `ai_helpdesk_pgdata`.
+- Verified that FastAPI could communicate with PostgreSQL through the Docker network.
+
+### Docker Compose
+- Created `compose.yaml` to define the FastAPI and PostgreSQL services.
+- Configured the application build, environment variables, published ports, persistent storage, PostgreSQL health check, service dependency, and restart policies.
+- Reused the existing external PostgreSQL volume to preserve database records.
+- Migrated from manually managed containers to Compose-managed services.
+- Verified that `docker compose config --quiet` succeeds.
+- Verified that both services start successfully and PostgreSQL becomes healthy.
+- Confirmed that `/health` returns HTTP 200.
+- Confirmed that `GET /tickets` returns all five tickets.
+- Verified that the dashboard displays all five tickets after the Compose migration.
+- Confirmed that all 15 automated tests pass locally.
+
+### Status
+- Dockerfile, image build, application container, networking, and basic Docker Compose setup are verified locally.
+- Changes still need to be committed and pushed to GitHub.
+- CI/CD, container security scanning, cloud deployment, and infrastructure automation remain pending.
+
 2. **CI/CD with GitHub Actions:** Automatically run tests, quality checks, security checks, and image builds when code changes.
 3. **Security and code quality:** Add appropriate dependency, source-code, and container image scanning.
 4. **AWS deployment:** Deploy the application using an appropriate cloud architecture, with cost and access controls.

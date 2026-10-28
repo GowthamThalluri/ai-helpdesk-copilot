@@ -11,6 +11,8 @@ load_dotenv()
 POSTGRES_DB = os.getenv("POSTGRES_DB")
 POSTGRES_USER = os.getenv("POSTGRES_USER")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "127.0.0.1")
+POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", "5432"))
 
 if not all((POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD)):
     raise RuntimeError(
@@ -22,8 +24,8 @@ database_url = URL.create(
     drivername="postgresql+psycopg",
     username=POSTGRES_USER,
     password=POSTGRES_PASSWORD,
-    host="127.0.0.1",
-    port=5432,
+    host=POSTGRES_HOST,
+    port=POSTGRES_PORT,
     database=POSTGRES_DB,
 )
 
