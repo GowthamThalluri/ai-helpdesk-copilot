@@ -12,7 +12,8 @@ WORKDIR /app
 COPY requirements.txt .
 
 # 5. Install the application's runtime dependencies.
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && python -m pip uninstall -y pip
 
 # 6. Copy backend and frontend files into the image.
 COPY backend ./backend
