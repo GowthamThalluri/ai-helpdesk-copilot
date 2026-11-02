@@ -1,5 +1,17 @@
 
 services:
+  migrate:
+    image: ai-helpdesk-copilot:1.1
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
   app:
     image: ai-helpdesk-copilot:1.1
     build:
@@ -15,6 +27,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   postgres:

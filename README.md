@@ -2,13 +2,13 @@
 
 A web-based IT support application designed to help support teams create, manage, investigate, and resolve support tickets.
 
-This project demonstrates a practical, end-to-end DevOps journey by progressively implementing application development, containerization, automated testing, Continuous Integration, cloud infrastructure, security, deployment, orchestration, and observability.
+This project demonstrates a practical, end-to-end DevOps journey by progressively implementing application development, containerization, automated testing, Continuous Integration, database migrations, cloud infrastructure, security, deployment, orchestration, and observability.
 
 ## 1. Project Status
 
-**Completed:** Application development, PostgreSQL integration, Docker, Docker Compose, Continuous Integration, and security scanning.
+**Completed:** Application development, PostgreSQL integration, Docker, Docker Compose, Alembic database migrations, automated testing, Continuous Integration, and security scanning.
 
-**Current activity:** Finalizing repository documentation and setup instructions.
+**Current activity:** Finalizing repository documentation and completing the final fresh-clone deployment verification.
 
 **Next technical phase:** AWS fundamentals and infrastructure architecture, followed by Terraform.
 
@@ -18,9 +18,9 @@ The current GitHub Actions workflow builds and scans the Docker image but does n
 
 ## 2. Application Features
 
-The current application provides the following functionality:
+The current application provides:
 
-- Web-based support ticket dashboard.
+- Web-based IT support dashboard.
 - Create new support tickets.
 - View existing tickets.
 - Filter tickets by status and priority.
@@ -43,8 +43,6 @@ The current application provides the following functionality:
 - Medium
 - High
 
-AI-assisted ticket classification, summarization, and knowledge assistance are planned for a later development stage.
-
 ## 3. Technology Stack
 
 | Area | Technology | Status |
@@ -53,74 +51,171 @@ AI-assisted ticket classification, summarization, and knowledge assistance are p
 | Backend | Python, FastAPI | Implemented |
 | Database | PostgreSQL | Implemented |
 | Database Integration | SQLAlchemy, Psycopg | Implemented |
-| Testing | Pytest | Implemented |
+| Database Migrations | Alembic | Implemented |
 | Version Control | Git, GitHub | Implemented |
-| Containerization | Docker | Implemented |
+| Containers | Docker | Implemented |
 | Container Orchestration | Docker Compose | Implemented |
+| Automated Testing | Pytest, HTTPX | Implemented |
 | Continuous Integration | GitHub Actions | Implemented |
-| Dependency Security | pip-audit | Implemented |
+| Dependency Scanning | pip-audit | Implemented |
+| Source Code Scanning | Bandit | Implemented |
 | Secret Scanning | Gitleaks | Implemented |
-| Python Code Security | Bandit | Implemented |
-| Container Security | Trivy | Implemented |
-| Cloud Infrastructure | AWS | Planned |
+| Container Scanning | Trivy | Implemented |
+| Cloud | AWS | Planned |
 | Container Registry | Amazon ECR | Planned |
 | Infrastructure as Code | Terraform | Planned |
 | Configuration Management | Ansible | Planned |
-| Container Orchestration | Kubernetes | Planned |
-| Kubernetes Package Management | Helm | Planned |
-| Monitoring and Logging | Amazon CloudWatch and other appropriate tools | Planned |
+| Orchestration | Kubernetes | Planned |
+| Package Management | Helm | Planned |
+| Monitoring and Logging | CloudWatch and appropriate observability tools | Planned |
 
 ## 4. Application Architecture
 
-The application currently consists of three main components.
+The application currently contains three main components:
 
-1. **Frontend:** HTML, CSS, and JavaScript provide the browser-based user interface.
-2. **Backend:** FastAPI processes application requests and implements ticket-management functionality.
+1. **Frontend:** Provides the browser-based user interface.
+2. **Backend:** FastAPI processes requests and implements application logic.
 3. **Database:** PostgreSQL stores ticket information persistently.
 
-FastAPI serves the frontend and handles application API requests. Docker Compose runs the FastAPI application and PostgreSQL as separate services connected through a Docker network.
+SQLAlchemy manages database communication. Alembic manages database schema changes through version-controlled migration scripts.
 
-### Current Architecture
-
-```text
-                 User Browser
-                      |
-                      v
-                Frontend UI
-             HTML / CSS / JS
-                      |
-                      v
-               FastAPI Backend
-                Python / API
-                      |
-                      v
-                 PostgreSQL
-                   Database
-```
-
-### Container Architecture
+### Current Docker Compose Architecture
 
 ```text
-              Docker Compose
-                     |
-          +----------+----------+
-          |                     |
-          v                     v
-    Application             Database
-     Container              Container
-          |                     |
-       FastAPI              PostgreSQL
-          |                     |
-          +----------+----------+
-                     |
-               Docker Network
-                     |
-                     v
-              Persistent Volume
-              ai_helpdesk_pgdata
+                  User / Browser
+                        |
+                        |
+                 127.0.0.1:8000
+                        |
+                        v
+               +------------------+
+               |   FastAPI App    |
+               |   (Non-root)     |
+               +------------------+
+                        |
+                        |
+                  Docker Network
+                        |
+                        v
+               +------------------+
+               |    PostgreSQL    |
+               |                  |
+               |   Persistent     |
+               |     Volume       |
+               +------------------+
+
+
+             Database Startup Flow
+             ---------------------
+
+               PostgreSQL starts
+                       |
+                       v
+               Health check passes
+                       |
+                       v
+               Alembic migration
+                   service
+                       |
+                       v
+               Migration succeeds
+                       |
+                       v
+                 FastAPI starts
 ```
 
-## 5. Run the Application Locally
+The migration service runs once during deployment. FastAPI starts only after the migration service completes successfully.
+
+## 5. Database Schema and Migrations
+
+The project uses PostgreSQL for persistent ticket storage and Alembic for database schema versioning.
+
+### Why Alembic?
+
+Without database migrations, a newly initialized PostgreSQL database may not contain the tables required by the application.
+
+Alembic provides a controlled way to:
+
+- Create database tables.
+- Modify existing database schemas.
+- Track database schema versions.
+- Apply pending changes during deployment.
+- Roll back supported schema changes.
+
+### Migration History
+
+The current migration history contains two revisions.
+
+| Revision | Description |
+|---|---|
+| `e91d904ff8b7` | Create the tickets table and historical index |
+| `f1b9ab28aaf3` | Remove the redundant tickets ID index |
+
+The initial revision represents the original database schema. The second revision removes the unnecessary secondary index on the primary-key column.
+
+The PostgreSQL primary-key index remains in place.
+
+### Automatic Migration During Deployment
+
+The Docker Compose configuration contains three services:
+
+| Service | Responsibility |
+|---|---|
+| `postgres` | Runs PostgreSQL and stores ticket data |
+| `migrate` | Applies pending Alembic migrations |
+| `app` | Runs the FastAPI application |
+
+The migration service executes:
+
+```bash
+alembic upgrade head
+```
+
+The FastAPI service depends on the migration service completing successfully.
+
+This ensures that the application does not start against an outdated or uninitialized database schema.
+
+### Fresh Database Initialization
+
+For a completely new installation:
+
+1. Configure `.env`.
+2. Create the required external Docker volume.
+3. Start the application using Docker Compose.
+
+Docker Compose automatically applies both migrations to the empty database before starting FastAPI.
+
+### Existing Database Upgrade
+
+For an existing database created before Alembic was introduced, the initial migration must be baselined before normal deployment.
+
+First, back up the database and verify that the existing schema matches the initial migration.
+
+Build the application image:
+
+```bash
+docker compose build app
+```
+
+Record the existing schema as Revision 1:
+
+```bash
+docker compose run --rm migrate alembic stamp e91d904ff8b7
+```
+
+This records the migration revision without executing the initial table-creation operation.
+
+Then start the application:
+
+```bash
+docker compose up -d --build
+```
+
+The migration service applies any remaining migrations automatically.
+
+**Important:** Do not run the baseline command against a fresh database. Do not blindly baseline an existing database without checking its actual schema and taking a backup.
+
+## 6. Local Development Setup
 
 ### Prerequisites
 
@@ -128,6 +223,7 @@ FastAPI serves the frontend and handles application API requests. Docker Compose
 - Docker Desktop
 - Docker Compose
 - Python 3.13 (for local development and testing)
+- VS Code or another code editor
 
 ### Step 1: Clone the repository
 
@@ -139,7 +235,7 @@ cd ai-helpdesk-copilot
 
 ### Step 2: Configure environment variables
 
-Create a local environment file from the example:
+Create a local environment file:
 
 ```bash
 cp .env.example .env
@@ -169,15 +265,26 @@ This volume stores PostgreSQL data independently of the database container.
 docker compose up -d --build
 ```
 
-Docker Compose builds the FastAPI application image and starts the application and PostgreSQL services.
+Docker Compose builds the application image and starts the services in the required order:
+
+1. PostgreSQL starts.
+2. PostgreSQL passes its health check.
+3. Alembic applies pending migrations.
+4. FastAPI starts after successful migration completion.
 
 ### Step 5: Verify the containers
 
 ```bash
-docker compose ps
+docker compose ps -a
 ```
 
-Both application and PostgreSQL services should be running. PostgreSQL should report a healthy status.
+Expected service states:
+
+- PostgreSQL: `Up (healthy)`
+- Migration: `Exited (0)`
+- FastAPI: `Up`
+
+The migration container exits after completing its one-time task. Exit code `0` means the migration completed successfully.
 
 ### Step 6: Open the application
 
@@ -197,7 +304,29 @@ Expected health response:
 }
 ```
 
-### Step 7: Stop the application
+**Ticket API:**
+
+http://127.0.0.1:8000/tickets
+
+### Step 7: Inspect application logs
+
+```bash
+docker compose logs app
+```
+
+Inspect migration logs:
+
+```bash
+docker compose logs migrate
+```
+
+Inspect PostgreSQL logs:
+
+```bash
+docker compose logs postgres
+```
+
+### Step 8: Stop the application
 
 ```bash
 docker compose down
@@ -215,140 +344,102 @@ docker volume rm ai_helpdesk_pgdata
 
 unless you intentionally want to delete the stored database data.
 
-## 6. Automated Testing
+## 7. Automated Testing
 
-The project uses Pytest for automated API testing.
+The project uses Pytest and HTTPX for automated API testing.
 
 ### Install development dependencies
 
-Make sure the required local environment variables are configured, then install the development dependencies:
+Create and activate the Python virtual environment:
+
+```bash
+python -m venv .venv
+```
+
+For Windows Git Bash:
+
+```bash
+source .venv/Scripts/activate
+```
+
+Install dependencies:
 
 ```bash
 python -m pip install -r requirements-dev.txt
 ```
 
-### Execute the tests
+### Run tests
 
 ```bash
-python -m pytest -v
+python -m pytest -q
 ```
-
-The current test suite contains 15 tests covering:
-
-- Application health.
-- Ticket creation.
-- Ticket listing and retrieval.
-- Filtering by status and priority.
-- Ticket updates.
-- Missing-ticket responses.
-- Invalid input and validation errors.
-- Whitespace-only input validation.
 
 The tests use an isolated in-memory SQLite database so that test execution does not modify the actual PostgreSQL database.
 
-**Latest verified local test result: 15 passed.**
+### Current Test Coverage
 
-## 7. Continuous Integration and Security
+The automated tests cover:
 
-GitHub Actions automates application testing, dependency auditing, source-code security checks, secret scanning, Docker image building, and container vulnerability scanning.
+- Health endpoint.
+- Ticket creation.
+- Ticket listing.
+- Ticket filtering.
+- Single-ticket retrieval.
+- Ticket updates.
+- Missing-ticket responses.
+- Invalid priorities.
+- Invalid status filters.
+- Missing required fields.
+- Invalid titles and whitespace-only inputs.
+- Validation and error responses.
 
-The workflow is located at:
+**Latest verified result:** 15 tests passed.
 
-`.github/workflows/tests.yaml`
+## 8. Continuous Integration and Security
 
-### Workflow Triggers
+The project uses GitHub Actions for automated quality checks and Docker image scanning.
 
-The workflow runs when:
+### Current CI Jobs
 
-- Code is pushed to the `main` branch.
-- A pull request targets the `main` branch.
+| Job | Purpose |
+|---|---|
+| Test | Executes automated application tests |
+| Dependency Audit | Checks dependencies using pip-audit |
+| Secret Scan | Scans repository history using Gitleaks |
+| Bandit Scan | Checks Python code for security issues |
+| Build Image | Builds and scans the Docker image |
 
-### CI Pipeline Jobs
+The Docker image build waits for the preceding quality and security jobs to complete successfully.
 
-The workflow contains five jobs.
+### Container Security
 
-**Job 1 — Automated Testing**
+The Dockerfile includes:
 
-Tool: Pytest
+- Python slim base image.
+- Non-root application user.
+- Dependency installation during image build.
+- Removal of pip from the final runtime image.
+- Minimal application files copied into the container.
 
-- Sets up Python 3.13.
-- Installs development dependencies.
-- Executes the automated application tests.
+Trivy scans the built image for vulnerabilities.
 
-**Job 2 — Dependency Audit**
+The project documents unresolved container operating-system package findings and the CI gate policy.
 
-Tool: pip-audit
+A successful CI run does not mean that every reported vulnerability is absent. Review `docs/security-scan.md` for the current findings and decisions.
 
-- Checks Python dependencies for known vulnerabilities.
-- Audits dependencies listed in `requirements-dev.txt`.
+### CI/CD Documentation
 
-**Job 3 — Repository Secret Scanning**
+See:
 
-Tool: Gitleaks
+[CI/CD Pipeline Documentation](docs/ci-cd.md)
 
-- Scans repository history for accidentally committed secrets.
-- Uses full Git history during checkout.
+### Security Documentation
 
-**Job 4 — Python Code Security**
+See:
 
-Tool: Bandit
+[Container Security Scan Documentation](docs/security-scan.md)
 
-- Scans the Python backend for common security issues.
-
-**Job 5 — Docker Image Build and Security Scanning**
-
-Tools: Docker Buildx and Trivy
-
-- Builds the Docker image using the repository Dockerfile.
-- Tags the image as `ai-helpdesk-copilot:ci`.
-- Loads the image into the GitHub Actions runner.
-- Scans operating-system and application-library vulnerabilities.
-- Generates a JSON vulnerability report.
-- Uploads the report as a GitHub Actions artifact.
-- Runs a separate security gate for fixable HIGH and CRITICAL findings.
-
-The current workflow builds the image but does not publish it to an external container registry.
-
-### Security Gate Policy
-
-The complete Trivy scan includes both fixable and unfixed HIGH and CRITICAL findings.
-
-The separate blocking security gate uses the following policy:
-
-- Fixable HIGH and CRITICAL findings can fail the workflow.
-- Findings Trivy classifies as unfixed do not block that particular gate.
-- Unfixed findings remain visible in the complete JSON report.
-
-A successful security gate does not mean the Docker image is free from all known vulnerabilities.
-
-For implementation details, see [CI/CD Pipeline Documentation](docs/ci-cd.md).
-
-## 8. Container Security Findings
-
-Trivy is used to scan the application Docker image for known vulnerabilities.
-
-During the latest recorded local scan after runtime image hardening, the findings were:
-
-| Finding | Result |
-|---|---:|
-| HIGH Debian package vulnerability entries | 44 |
-| CRITICAL Debian findings | 0 |
-| Python package findings | 0 |
-
-The 44 Debian entries contain repeated package/CVE combinations and do not represent 44 unique vulnerabilities.
-
-During investigation:
-
-- Python findings were traced to components listed in pip's embedded SBOM.
-- Pip was removed from the final runtime image after installing application dependencies.
-- The application dependencies were verified to remain available.
-- A subsequent scan no longer reported Python package findings.
-- Debian package versions were checked against the configured Debian 13 (Trixie) repositories.
-- No newer candidate versions were available for the checked packages during that investigation.
-
-The Debian findings remain unresolved and tracked. They are not treated as fixed simply because the CI security gate passed.
-
-For the detailed investigation, see [Container Security Scan Documentation](docs/security-scan.md).
+**Continuous Delivery/Deployment is not yet implemented.** The current workflow does not push the image to Amazon ECR or deploy the application to AWS.
 
 ## 9. Project Documentation
 
@@ -363,18 +454,24 @@ For the detailed investigation, see [Container Security Scan Documentation](docs
 
 The project follows a progressive implementation approach. Each milestone must be implemented, tested, documented, and verified before moving to the next.
 
-### Phase 0 — Repository Documentation and Setup
+### Phase 0 — Application, Docker, CI, Security, and Repository Setup
 
 - [x] Create initial project requirements.
-- [x] Implement the application and database integration.
+- [x] Implement the application and PostgreSQL integration.
 - [x] Implement automated application tests.
 - [x] Implement Docker and Docker Compose.
 - [x] Implement Continuous Integration.
-- [x] Implement security scanning.
+- [x] Implement dependency, secret, source-code, and container security scanning.
 - [x] Document container security findings.
+- [x] Implement version-controlled database migrations using Alembic.
+- [x] Integrate automatic migrations into Docker Compose startup.
+- [x] Safely baseline the existing PostgreSQL database.
+- [x] Preserve all five existing tickets during migration.
+- [x] Verify the original application after migration.
+- [ ] Verify a fresh-clone setup using the final two-revision migration history.
 - [ ] Complete repository documentation synchronization.
-- [ ] Verify a fresh-clone setup using the documented instructions.
-- [ ] Commit and push the documentation updates.
+- [ ] Commit and push the final implementation.
+- [ ] Verify GitHub Actions after the final changes.
 
 ### Phase 1 — AWS Fundamentals and Infrastructure Architecture
 
@@ -407,14 +504,82 @@ The project follows a progressive implementation approach. Each milestone must b
 ### Phase 3 — Ansible and Configuration Management
 
 - [ ] Understand configuration management.
-- [ ] Learn Ansible inventory.
-- [ ] Practise ad-hoc commands.
-- [ ] Learn playbooks.
-- [ ] Learn variables and handlers.
-- [ ] Learn roles.
-- [ ] Automate required host-configuration tasks.
-- [ ] Integrate Ansible where appropriate for the selected architecture.
+- [ ] Learn Ansible inventory and configuration.
+- [ ] Learn playbooks, tasks, and modules.
+- [ ] Understand variables, handlers, and templates.
+- [ ] Learn Ansible roles.
+- [ ] Practise configuration management where required by the project.
 
-### Phase 4 — Complete Continuous Delivery/Deployment
+### Phase 4 — Continuous Delivery and AWS Deployment
 
-- [ ] Publish verified Docker
+- [ ] Understand the difference between CI and CD.
+- [ ] Publish verified images to Amazon ECR.
+- [ ] Configure secure GitHub Actions authentication with AWS.
+- [ ] Use appropriate AWS IAM roles and permissions.
+- [ ] Deploy the application to the selected AWS runtime.
+- [ ] Automate deployment through GitHub Actions.
+- [ ] Add deployment health verification.
+- [ ] Practise rollout and rollback procedures.
+
+### Phase 5 — Kubernetes
+
+- [ ] Learn Kubernetes architecture.
+- [ ] Understand Pods and Deployments.
+- [ ] Learn Services and service discovery.
+- [ ] Understand ConfigMaps and Secrets.
+- [ ] Learn readiness and liveness probes.
+- [ ] Understand resource requests and limits.
+- [ ] Practise autoscaling.
+- [ ] Deploy the application locally using Minikube.
+- [ ] Evaluate Amazon EKS for cloud deployment.
+
+### Phase 6 — Helm
+
+- [ ] Understand Helm charts and their structure.
+- [ ] Learn chart templates and values files.
+- [ ] Create a Helm chart for the application.
+- [ ] Configure environment-specific values.
+- [ ] Practise Helm install, upgrade, rollback, and uninstall.
+
+### Phase 7 — Monitoring, Logging, and Observability
+
+- [ ] Understand monitoring and observability fundamentals.
+- [ ] Implement infrastructure and application metrics.
+- [ ] Centralize application logs.
+- [ ] Configure dashboards and alerting.
+- [ ] Monitor application and database health.
+- [ ] Practise troubleshooting from logs and metrics.
+
+### Phase 8 — Reliability and Failure Testing
+
+- [ ] Introduce controlled application failures.
+- [ ] Test database unavailability.
+- [ ] Test container restart and recovery.
+- [ ] Verify persistent data after failures.
+- [ ] Practise backup and restore procedures.
+- [ ] Document troubleshooting and recovery procedures.
+
+### Phase 9 — AI Capabilities and Architecture Evolution
+
+- [ ] Evaluate AI-assisted ticket summarization.
+- [ ] Explore ticket classification.
+- [ ] Add knowledge-base assistance.
+- [ ] Evaluate AI-generated troubleshooting suggestions.
+- [ ] Measure the usefulness and reliability of AI features.
+- [ ] Evaluate microservices only when justified by application requirements.
+
+---
+
+## Learning Approach
+
+This project follows a hands-on approach:
+
+1. Understand the requirement.
+2. Understand the underlying concept.
+3. Implement the solution.
+4. Test the result.
+5. Troubleshoot failures.
+6. Document the outcome.
+7. Verify completion before proceeding.
+
+Features and milestones will be marked complete only after they have been implemented and verified.

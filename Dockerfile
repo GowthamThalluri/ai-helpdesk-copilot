@@ -12,12 +12,18 @@ WORKDIR /app
 COPY requirements.txt .
 
 # 5. Install the application's runtime dependencies.
-RUN pip install --no-cache-dir -r requirements.txt \
+RUN pip install --no-cache-dir \
+      --index-url https://pypi.org/simple \
+      --retries 5 \
+      --timeout 30 \
+      -r requirements.txt \
     && python -m pip uninstall -y pip
 
 # 6. Copy backend and frontend files into the image.
 COPY backend ./backend
 COPY frontend ./frontend
+COPY migrations ./migrations
+COPY alembic.ini ./alembic.ini
 
 # 7. Create a non-root user for the application.
 RUN addgroup --system app \
