@@ -4,27 +4,32 @@
 
 ## 1. Overall Project Status
 
-The AI Helpdesk Copilot application has been implemented and verified locally using Docker Compose. Its Terraform-managed AWS network foundation is also committed to GitHub.
+The AI Helpdesk Copilot application is implemented and runs locally using Docker Compose. Application testing, database migrations, container security scanning, and the database reliability exercises recorded in this document have been verified.
 
-The project has completed the following major milestones:
+The main portfolio version is now being completed locally. The next major phase is deploying the existing application to Kubernetes using the existing Minikube installation. Real AWS deployment is deferred until after the local portfolio version is complete.
+
+### Completed major milestones
 
 - Application development and PostgreSQL integration.
-- Automated application testing.
-- Application hardening.
-- Docker and Docker Compose.
-- Alembic database schema migrations.
+- Application validation, logging, and error responses.
+- Dockerfile, non-root container runtime, and Docker Compose.
+- Alembic database migrations and Docker Compose migration integration.
 - Fresh-database migration and application startup verification.
-- Terraform-managed AWS network foundation.
-- Continuous Integration using GitHub Actions.
+- 17 automated API tests.
+- GitHub Actions Continuous Integration.
 - Dependency, source-code, secret, and container security scanning.
-- Container runtime hardening.
-- Security and project documentation.
+- Trivy Docker image security fix for the two recorded HIGH `zlib1g` findings.
+- Database liveness/readiness checks.
+- Controlled PostgreSQL outage and recovery verification.
+- PostgreSQL backup archive inspection and isolated restore verification.
+- Preservation of all five original ticket records.
+- Terraform AWS network foundation committed as historical project work.
 
-**Current implementation stage:** Application + Docker + Docker Compose + Database Migrations + Continuous Integration + Security + Terraform AWS Network Foundation.
+**Current implementation stage:** Local application + Docker Compose + database migrations + CI/security + database reliability verification.
 
-**Not yet implemented:** Amazon ECR image publishing and application deployment to AWS.
+**Next major phase:** Kubernetes deployment with Minikube.
 
-The next technical phase is to extend the Terraform network foundation toward an application deployment architecture, after reviewing AWS credits, IAM permissions, and expected costs.
+**Cloud status:** No active AWS deployment is part of the current project phase. Existing AWS/Terraform work is preserved for a later optional extension. Do not run the historical AWS Terraform state against another account or environment.
 
 ---
 
@@ -45,14 +50,14 @@ The next technical phase is to extend the Terraform network foundation toward an
 ### Backend
 
 - Implemented the FastAPI application.
-- Added the backend health endpoint.
 - Implemented ticket creation and listing.
-- Implemented ticket filtering.
-- Implemented single-ticket retrieval.
+- Implemented ticket filtering and single-ticket retrieval.
 - Implemented ticket status and priority updates.
 - Added handling for nonexistent tickets and invalid requests.
 - Added validation for missing and invalid input values.
 - Configured the application to serve frontend static assets.
+- Added `/health` to report whether the FastAPI process is responding.
+- Added `/ready` to check whether PostgreSQL is reachable.
 
 ### Application Logging and Hardening
 
@@ -61,9 +66,9 @@ The next technical phase is to extend the Terraform network foundation toward an
 - Added warning logs for requested tickets that do not exist.
 - Added whitespace trimming and input validation.
 - Documented appropriate HTTP error responses in the FastAPI OpenAPI specification.
-- Verified application logging through the running application.
+- Logged readiness-check database failures without returning internal database details to clients.
 
-**Status:** Application implementation and hardening completed.
+**Status:** Application implementation and hardening completed for the current V1 scope.
 
 ---
 
@@ -89,20 +94,11 @@ The original PostgreSQL database uses:
 
 - Database: `helpdesk_db`
 - Table: `tickets`
-- Existing records before migration: 5
+- Existing records: 5
 
-The original database schema was inspected before introducing Alembic.
+The original database schema was inspected before introducing Alembic. The inspection confirmed seven ticket columns, an integer primary key, a PostgreSQL sequence for automatic ID generation, a timestamp-with-time-zone column for `created_at`, a primary-key index, and an additional secondary index named `ix_tickets_id`.
 
-The inspection confirmed:
-
-- Seven ticket columns.
-- An integer primary key.
-- A PostgreSQL sequence for automatic ID generation.
-- A timestamp-with-time-zone column for `created_at`.
-- A primary-key index.
-- An additional secondary index named `ix_tickets_id`.
-
-### Database Backup
+### Database Backup Before Migration
 
 Before modifying the original database schema:
 
@@ -112,7 +108,7 @@ Before modifying the original database schema:
 - Verified that the original and copied backup SHA-256 checksums matched.
 - Kept the backup outside the Git repository.
 
-**Status:** PostgreSQL integration and database persistence completed. Existing records preserved.
+**Status:** PostgreSQL integration and persistence completed. Existing records preserved.
 
 ---
 
@@ -122,23 +118,21 @@ Before modifying the original database schema:
 - Added automated API tests in `tests/test_tickets.py`.
 - Configured an isolated in-memory SQLite database for testing.
 - Ensured tests do not modify the real PostgreSQL database.
-- Tested the health endpoint.
-- Tested ticket creation and listing.
-- Tested ticket filtering.
-- Tested single-ticket retrieval.
-- Tested ticket updates.
+- Tested the liveness endpoint.
+- Tested readiness when the database is available.
+- Tested readiness returning HTTP 503 for a simulated SQLAlchemy database error.
+- Tested ticket creation, listing, and filtering.
+- Tested single-ticket retrieval and updates.
 - Tested missing-ticket and invalid-request responses.
-- Tested invalid priorities.
-- Tested invalid status filters.
-- Tested short titles and missing required fields.
-- Tested whitespace-only titles, descriptions, and categories.
+- Tested invalid priorities and invalid status filters.
+- Tested short titles, missing required fields, and whitespace-only inputs.
 - Resolved the Starlette test-client deprecation warning by updating test dependencies.
 - Verified dependencies using `python -m pip check`.
 
 **Latest verified result:**
 
 ```text
-15 passed
+17 passed
 ```
 
 The tests were executed using:
@@ -147,7 +141,7 @@ The tests were executed using:
 python -m pytest -q
 ```
 
-**Status:** All 15 automated tests pass.
+**Status:** All 17 automated tests passed locally. GitHub Actions also passed after the readiness changes.
 
 ---
 
@@ -170,9 +164,10 @@ python -m pytest -q
 - Installed application dependencies during image construction.
 - Removed pip from the final runtime image after dependency installation.
 - Verified that pip is absent while required application dependencies remain available.
-- Built the application image with versioned tags, including `ai-helpdesk-copilot:1.0` and `ai-helpdesk-copilot:1.1`.
-- Added retry and timeout settings to the Docker dependency installation command.
+- Built versioned application images, including `ai-helpdesk-copilot:1.0`, `:1.1`, and the locally verified security-fix image `:1.2`.
+- Added retry and timeout settings to Docker dependency installation.
 - Explicitly configured the official PyPI package index for image builds.
+- Updated Debian `zlib1g` to the fixed package version after Trivy identified two fixable HIGH findings.
 
 ### Docker Networking and Persistence
 
@@ -186,21 +181,17 @@ python -m pytest -q
 
 - Created `compose.yaml` for the FastAPI application and PostgreSQL.
 - Configured the application and database as separate services.
+- Added a one-off `migrate` service for Alembic.
 - Configured environment variables and published ports.
 - Configured persistent database storage.
-- Configured PostgreSQL health checks and service dependencies.
-- Configured restart policies.
+- Configured PostgreSQL health checks, service dependencies, and restart policies.
 - Reused the existing external PostgreSQL volume to preserve database records.
-- Migrated from manually managed containers to Compose-managed services.
 - Verified that `docker compose config --quiet` succeeds.
-- Verified that PostgreSQL becomes healthy.
-- Confirmed that the application is available at `127.0.0.1:8000`.
-- Verified the `/health` endpoint.
-- Confirmed that `GET /tickets` returns the expected ticket records.
-- Verified that the dashboard displays ticket records after the Compose migration.
-- Confirmed that all 15 automated tests pass after containerization.
+- Verified PostgreSQL becomes healthy.
+- Confirmed the application is available at `127.0.0.1:8000`.
+- Verified `/health`, `/ready`, and `GET /tickets` through the running Compose application.
 
-**Status:** Dockerfile, application image, non-root runtime, networking, persistent storage, and Docker Compose implementation completed.
+**Status:** Dockerfile, image build, non-root runtime, networking, persistent storage, and Docker Compose implementation completed.
 
 ---
 
@@ -208,16 +199,11 @@ python -m pytest -q
 
 ### Why Migrations Were Needed
 
-A fresh PostgreSQL database did not automatically contain the `tickets` table.
-
-The application previously returned an HTTP 500 error when it attempted to query the missing table.
-
-Database migrations were introduced to make schema creation and future schema changes version-controlled and repeatable.
+A fresh PostgreSQL database did not automatically contain the `tickets` table. Database migrations were introduced to make schema creation and future schema changes version-controlled and repeatable.
 
 ### Alembic Configuration
 
 - Added Alembic to `requirements.txt`.
-- Installed Alembic in the local development environment.
 - Initialized Alembic using `alembic init migrations`.
 - Configured `migrations/env.py`.
 - Connected Alembic to the application's SQLAlchemy engine.
@@ -235,35 +221,7 @@ Two migration revisions are currently implemented.
 | `e91d904ff8b7` | Create the tickets table and historical secondary index |
 | `f1b9ab28aaf3` | Remove the redundant tickets ID index |
 
-The migration sequence is:
-
-```text
-             Base
-               |
-               v
-       e91d904ff8b7
-       Create tickets table
-       + historical index
-               |
-               v
-       f1b9ab28aaf3
-       Remove redundant index
-               |
-               v
-              HEAD
-```
-
-### Why Two Revisions?
-
-The original SQLAlchemy model explicitly requested an additional index on the primary-key column through `index=True`.
-
-PostgreSQL already creates an index for a primary key.
-
-The unnecessary secondary index was removed from the current model.
-
-However, the migration history preserves the original schema as Revision 1 and removes the redundant index through Revision 2.
-
-This allows existing and fresh databases to reach the same final schema through a consistent migration history.
+The original SQLAlchemy model explicitly requested an additional index on the primary-key column through `index=True`. PostgreSQL already creates an index for a primary key, so the unnecessary secondary index was removed from the current model. The migration history preserves the original schema as Revision 1 and removes the redundant index through Revision 2.
 
 ### Fresh-Database Migration and Application Verification — 12 November 2026
 
@@ -271,8 +229,8 @@ A separate temporary PostgreSQL database was used to verify the complete migrati
 
 - Confirmed that the temporary database initially contained no tables.
 - Executed `alembic upgrade head` using the application Docker image.
-- Verified that revisions `e91d904ff8b7` and `f1b9ab28aaf3` ran successfully in order.
-- Confirmed that `alembic current` reported `f1b9ab28aaf3 (head)`.
+- Verified revisions `e91d904ff8b7` and `f1b9ab28aaf3` ran successfully in order.
+- Confirmed `alembic current` reported `f1b9ab28aaf3 (head)`.
 - Inspected the resulting `tickets` table and confirmed its seven columns and primary-key index.
 - Started a separate FastAPI container against the migrated database.
 - Verified `GET /health` returned HTTP 200 with `{"status":"healthy"}`.
@@ -284,43 +242,23 @@ A separate temporary PostgreSQL database was used to verify the complete migrati
 
 ### Docker Compose Migration Integration
 
-Updated the Dockerfile to include:
-
-- `migrations/`
-- `alembic.ini`
-
-Added Alembic to the runtime dependencies.
-
-Updated `compose.yaml` with a dedicated migration service:
-
-```yaml
-migrate:
-  image: ai-helpdesk-copilot:1.1
-  command: ["alembic", "upgrade", "head"]
-```
-
-The FastAPI application depends on:
-
-```yaml
-migrate:
-  condition: service_completed_successfully
-```
+The Dockerfile includes `migrations/` and `alembic.ini`. The Compose configuration contains a dedicated migration service that runs `alembic upgrade head`. The FastAPI application depends on the migration service completing successfully.
 
 The deployment sequence is:
 
 ```text
 PostgreSQL starts
-       |
-       v
+      |
+      v
 PostgreSQL health check passes
-       |
-       v
+      |
+      v
 Alembic migration service runs
-       |
-       v
+      |
+      v
 Migration exits successfully
-       |
-       v
+      |
+      v
 FastAPI starts
 ```
 
@@ -328,21 +266,15 @@ The migration service is a one-time task. An exit status of `0` indicates succes
 
 ### Existing Database Baseline
 
-The original PostgreSQL database already contained the tickets table and five records.
+The original PostgreSQL database already contained the tickets table and five records. Running the initial `CREATE TABLE` migration directly against this database would have failed because the table already existed.
 
-Running the initial `CREATE TABLE` migration directly against this database would have failed because the table already existed.
-
-The existing database was inspected and backed up before migration.
-
-The baseline was recorded using:
+The existing database was inspected and backed up before migration. The baseline was recorded using:
 
 ```bash
 alembic stamp e91d904ff8b7
 ```
 
-This recorded Revision 1 without executing its table-creation operation.
-
-The next migration was applied using:
+This recorded Revision 1 without executing its table-creation operation. The next migration was applied using:
 
 ```bash
 alembic upgrade head
@@ -352,94 +284,91 @@ Only Revision 2 executed against the existing database.
 
 ### Final Original Database Verification
 
-The final verification returned:
+The final verification confirmed:
 
 ```text
 Ticket count: 5
 Alembic revision: f1b9ab28aaf3
-Tables: ['tickets', 'alembic_version']
+Tables: tickets, alembic_version
 ```
 
-The primary key remained in place.
+The primary key remained in place, the redundant secondary index was removed, and all five existing ticket records were preserved.
 
-The redundant secondary index was removed.
-
-The five existing ticket records were preserved.
-
-### Final Docker Deployment Verification
-
-Rebuilt the application image and deployed using:
-
-```bash
-docker compose up -d --no-build
-```
-
-The container status showed:
-
-```text
-app       Up
-migrate   Exited (0)
-postgres  Up (healthy)
-```
-
-The following endpoints were verified:
-
-```text
-GET /health  -> HTTP 200
-GET /tickets -> HTTP 200
-```
-
-All five existing tickets were returned by the application after deployment.
-
-**Status:** Alembic implementation, existing-database baseline, migration execution, and original database preservation verified.
-
-### Fresh Database Verification Still Pending
-
-An earlier isolated fresh-clone test verified automatic database initialization and persistence through Docker Compose.
-
-However, the final two-revision migration history must still be verified end-to-end against a completely empty database before the fresh-install documentation is marked complete.
+**Status:** Alembic implementation, existing-database baseline, fresh-database migration, and original database preservation verified.
 
 ---
 
-## 7. Continuous Integration — Implemented
+## 7. Database Readiness, Outage, Recovery, and Backup/Restore — Verified
+
+This DevOps reliability milestone was completed on 12 November 2026.
+
+### Readiness Endpoint
+
+- Added `GET /ready` to execute a lightweight database query.
+- Returns HTTP 200 with `{"status":"ready","database":"connected"}` when PostgreSQL is reachable.
+- Returns HTTP 503 with a controlled `Database unavailable` response when a SQLAlchemy database error occurs.
+- Added automated tests for both successful readiness and simulated database failure.
+
+### Controlled PostgreSQL Outage and Recovery
+
+- Confirmed `/health` and `/ready` returned HTTP 200 while PostgreSQL was healthy.
+- Stopped only the PostgreSQL Compose service using `docker compose stop postgres`.
+- Confirmed FastAPI remained running and `/health` returned HTTP 200.
+- Confirmed `/ready` returned HTTP 503 while PostgreSQL was stopped.
+- Restarted PostgreSQL using `docker compose start postgres`.
+- Waited for the PostgreSQL health check to report `healthy`.
+- Confirmed `/ready` returned HTTP 200 after recovery.
+- Confirmed all five original tickets remained available.
+
+### PostgreSQL Backup and Restore
+
+- Created a PostgreSQL custom-format backup outside the project repository.
+- Confirmed the backup file was non-empty and generated a SHA-256 checksum.
+- Inspected the archive with `pg_restore --list`.
+- Confirmed the archive contained the `tickets` table, ticket data, `alembic_version`, and the ticket ID sequence.
+- Started a separate temporary PostgreSQL container with a separate anonymous Docker volume.
+- Restored the backup into the empty temporary database using `pg_restore`.
+- Verified that the restored database contained five tickets.
+- Verified the restored Alembic revision was `f1b9ab28aaf3`.
+- Removed only the temporary restore container and its anonymous volume.
+- Rechecked the original database and confirmed all five original tickets were still present.
+
+**Status:** Readiness behavior, database outage/recovery, backup archive inspection, and isolated restore verification completed. The original database volume was not overwritten or deleted.
+
+---
+
+## 8. Continuous Integration — Implemented
 
 The project uses GitHub Actions for automated checks.
 
-### Latest GitHub Actions Verification
-
-| Detail | Result |
-|---|---|
-| Latest successful commit | `b98883f` |
-| Workflow run | #19 — Success |
-| Branch | `main` |
-| Duration | 1 minute 31 seconds |
-| Artifacts | 3 |
-
-**Status:** GitHub Actions Run #19 successfully verified the latest implementation commit.
-
-The current workflow contains five jobs:
+### CI Jobs
 
 1. **Test:** Runs automated application tests.
 2. **Dependency Audit:** Uses pip-audit to identify vulnerable dependencies.
 3. **Secret Scan:** Uses Gitleaks to scan repository history.
 4. **Bandit Scan:** Checks Python source code for security issues.
-5. **Build Image:** Builds the Docker image after the preceding quality and security jobs succeed.
+5. **Build Image:** Builds and scans the Docker image after the preceding quality and security jobs succeed.
 
-The image build uses a non-publishing configuration.
+The image build uses a non-publishing configuration. Docker images are built and scanned but are not pushed to Amazon ECR or another external registry.
 
-Docker images are built and scanned but are not yet pushed to Amazon ECR.
+### Latest GitHub Actions Verification
 
-### CI/CD Documentation
+- Latest implementation commit: `89567e6`.
+- Branch: `main`.
+- Result: Successful, as confirmed after the readiness and test changes.
 
-The implementation is documented in:
+Earlier successful Trivy workflow verification:
 
-`docs/ci-cd.md`
+- Commit: `b98883f`.
+- Workflow run: #19.
+- Duration: 1 minute 31 seconds.
+- Artifacts: 3.
 
-**Status:** Continuous Integration implemented. Continuous Delivery/Deployment remains pending.
+**Status:** Continuous Integration implemented and the latest readiness implementation commit verified successfully by GitHub Actions. Continuous Delivery/Deployment remains unimplemented.
 
 ---
 
-## 8. Security and Container Hardening — Implemented
+## 9. Security and Container Hardening — Implemented
 
 ### Dependency Security
 
@@ -461,130 +390,34 @@ The implementation is documented in:
 ### Container Security
 
 - Added Trivy image vulnerability scanning.
-- Configured JSON vulnerability report generation.
-- Configured report artifact retention.
+- Configured JSON vulnerability report generation and artifact retention.
 - Configured a CI gate for fixable HIGH and CRITICAL findings.
-- Updated Debian `zlib1g` to the fixed package version after Trivy identified two HIGH vulnerabilities.
+- Updated Debian `zlib1g` after Trivy identified two fixable HIGH findings: `CVE-2026-76844` and `CVE-2026-85091`.
+- Verified the fixed package version in the locally rebuilt image.
 - Removed pip from the final runtime image.
 - Configured a non-root application user.
 
-Unresolved Debian operating-system package findings have been documented.
+GitHub Actions Run #19 passed the Trivy blocking gate after the zlib update. A successful Trivy gate does not mean that the image has zero known vulnerabilities; the complete report remains the reference for findings that are not blocked by the configured policy.
 
-On 12 November 2026, the Trivy scan identified two fixable HIGH findings in Debian `zlib1g`: `CVE-2026-76844` and `CVE-2026-85091`. The Dockerfile was updated to upgrade `zlib1g` to `1:1.3.dfsg+really1.3.1-1+deb13u1`. The local image package version was verified, and GitHub Actions Run #19 passed the Trivy blocking gate after this change.
-
-The complete Trivy report remains important: passing the blocking gate does not mean that the image has zero known vulnerabilities.
-
-A successful Trivy gate does not mean that every vulnerability is absent. The documented scan policy distinguishes fixable findings from unfixed findings.
-
-See:
-
-`docs/security-scan.md`
+See `docs/security-scan.md` for the recorded findings and decisions.
 
 **Status:** Security checks and container hardening implemented. Remaining findings are documented and tracked.
 
 ---
 
-## 9. Repository Documentation
+## 10. Terraform AWS Network Foundation — Preserved for Later
 
-The project documentation consists of:
+Terraform configuration for the previous personal AWS environment was committed in the repository. It describes a VPC, six subnets, an Internet Gateway, route tables, and security groups.
 
-| File | Purpose |
-|---|---|
-| `README.md` | Project overview, features, setup instructions, and roadmap |
-| `docs/requirements.md` | Original project requirements |
-| `docs/progress.md` | Completed work, current status, and roadmap |
-| `docs/ci-cd.md` | GitHub Actions pipeline and CI implementation |
-| `docs/security-scan.md` | Trivy findings and container security decisions |
+- Commit: `4934361` — `Add Terraform AWS network foundation`.
+- The Terraform configuration was formatted and validated.
+- A Terraform plan reported no changes against the then-existing AWS environment.
+- Terraform state and provider binaries were excluded from Git.
+- The AWS account was subsequently closed by the user.
 
-### Documentation Status
+**Current decision:** Preserve the Terraform files as project history. Do not run `terraform apply` using the old configuration or state. Real AWS deployment is deferred until after the local portfolio version is complete. Terraform learning and practice will use a separate local or sandbox configuration and separate state.
 
-- Updated README with application architecture and database migration instructions.
-- Restored and updated the complete project progress history.
-- Documented Alembic migration revisions and Docker Compose integration.
-- Documented CI and security implementation.
-- Committed and pushed documentation updates.
-- Verified GitHub Actions run #19 successfully for commit `b98883f`.
-
-**Status:** Documentation updates published to GitHub.
-
----
-
-## 10. Current Limitations and Pending Work
-
-### Application Improvements
-
-- Additional database failure and transaction-rollback testing.
-- Automated browser/UI testing.
-- Additional backup and restore verification.
-
-### Continuous Delivery/Deployment
-
-- Publish the verified Docker image to Amazon ECR.
-- Configure secure AWS authentication for GitHub Actions.
-- Deploy the application to an appropriate AWS runtime.
-- Automate deployment through GitHub Actions.
-- Add deployment health verification.
-- Practise rollout and rollback procedures.
-
-### AWS Infrastructure
-
-- Prepare the AWS infrastructure architecture.
-- Review IAM and least-privilege access.
-- Understand VPC networking.
-- Plan secure and cost-effective application hosting.
-- Extend the committed Terraform network foundation with application runtime resources after IAM and AWS cost review.
-
-### Kubernetes and Helm
-
-- Deploy the application locally using Minikube.
-- Understand Deployments, Services, ConfigMaps, and Secrets.
-- Practise health probes, resource limits, and autoscaling.
-- Evaluate Amazon EKS.
-- Create and maintain Helm charts.
-
-### Monitoring and Reliability
-
-- Implement metrics and monitoring.
-- Centralize application logs.
-- Configure dashboards and alerting.
-- Practise application and database troubleshooting.
-- Introduce controlled failure scenarios.
-- Verify recovery and persistent data.
-
-### AI Capabilities
-
-AI-assisted ticket summarization, classification, and knowledge assistance are planned for the final project stage.
-
----
-
-## 11. Fixed Project Roadmap
-
-The following sequence is the agreed implementation order.
-
-A milestone will not be marked complete until it has been implemented, tested, documented, and verified.
-
-### Phase 0 — Application, Docker, CI, Security, and Repository Setup
-
-- [x] Create project requirements documentation.
-- [x] Implement the application.
-- [x] Integrate PostgreSQL.
-- [x] Implement automated application testing.
-- [x] Complete application hardening.
-- [x] Implement Docker containerization.
-- [x] Implement Docker Compose.
-- [x] Implement Continuous Integration.
-- [x] Implement dependency, source-code, secret, and container security scanning.
-- [x] Document container security findings.
-- [x] Implement Alembic database migrations.
-- [x] Integrate migrations into Docker Compose startup.
-- [x] Baseline the original PostgreSQL database safely.
-- [x] Preserve all five existing records.
-- [ ] Verify fresh-clone setup using the final migration history.
-- [x] Complete repository documentation synchronization.
-- [x] Commit and push the final implementation.
-- [x] Verify GitHub Actions after the final changes.
-
-### AWS Fundamentals — Day 1 Completed
+### AWS Fundamentals — Day 1 Completed (Historical Learning)
 
 Topics covered:
 
@@ -596,97 +429,187 @@ Topics covered:
 - Amazon CloudFront.
 - Cache hits, cache misses, and origin retrieval.
 
-**Status:** Conceptual learning completed. No AWS infrastructure deployed.
+**Status:** Conceptual learning completed. Real AWS deployment is deferred until after the local portfolio version is complete.
 
-### Phase 1 — AWS Fundamentals and Architecture
+---
 
-- [x] Understand AWS Regions.
-- [x] Understand Availability Zones.
-- [x] Understand multi-AZ architecture and high availability.
-- [x] Understand Edge Locations and Amazon CloudFront caching.
-- [ ] Review IAM users, roles, policies, and least privilege.
-- [ ] Understand VPC architecture.
-- [ ] Understand public and private subnets.
-- [ ] Learn route tables, Internet Gateways, and NAT.
-- [ ] Understand security groups and network access.
-- [ ] Evaluate EC2 and application hosting choices.
-- [ ] Understand Amazon ECR for container images.
-- [ ] Review CloudWatch and secrets management.
-- [ ] Plan resource costs, cleanup, and security controls.
+## 11. Repository Documentation
 
-### Phase 2 — Terraform and Infrastructure as Code
+The project documentation consists of:
+
+| File | Purpose |
+|---|---|
+| `README.md` | Project overview, features, setup instructions, and roadmap |
+| `docs/requirements.md` | Original application requirements |
+| `docs/progress.md` | Completed work, current status, and roadmap |
+| `docs/ci-cd.md` | GitHub Actions pipeline and CI implementation |
+| `docs/security-scan.md` | Trivy findings and container security decisions |
+
+### Documentation Status
+
+- Updated README with application architecture and database migration instructions.
+- Documented Alembic migration revisions and Docker Compose integration.
+- Documented CI and security implementation.
+- Recorded the fresh-database migration verification.
+- Recorded readiness, outage/recovery, and backup/restore exercises.
+- Recorded the local-first project direction and deferred AWS extension.
+
+**Status:** This documentation update is prepared for review, commit, and push.
+
+---
+
+## 12. Current Limitations and Pending Work
+
+### Application Improvements
+
+- Automated browser/UI testing.
+- Additional application-level failure scenarios where useful.
+- Final project demonstration and documentation polish.
+
+### Kubernetes and Helm
+
+- Inspect the existing Minikube cluster.
+- Deploy the FastAPI application and PostgreSQL using Kubernetes resources.
+- Configure Services, ConfigMaps, Secrets, and persistent storage.
+- Configure liveness and readiness probes.
+- Configure resource requests, limits, and autoscaling.
+- Package the application with Helm.
+
+### Terraform and Ansible Practice
+
+- Create a separate local Terraform configuration and state for practice.
+- Learn Terraform variables, outputs, resources, providers, and state handling.
+- Practise Ansible inventory, playbooks, tasks, variables, handlers, and roles in a local Linux environment.
+
+### GitOps
+
+- Install Argo CD in the local Kubernetes cluster.
+- Connect the repository deployment manifests.
+- Practise sync, drift detection, self-healing, and rollback.
+
+### Monitoring and Reliability
+
+- Install Prometheus and Grafana locally.
+- Add application and infrastructure dashboards.
+- Centralize useful application and container logs.
+- Configure alerts and practise troubleshooting.
+- Perform additional controlled failure and recovery exercises.
+
+### Later Optional AWS Extension
+
+Real AWS deployment, Amazon ECR publishing, AWS authentication for GitHub Actions, and AWS-hosted infrastructure are deferred until after the local portfolio version is complete.
+
+### AI Capabilities
+
+AI-assisted ticket summarization, classification, and knowledge assistance are planned for a later project stage.
+
+---
+
+## 13. Fixed Project Roadmap
+
+The main portfolio version is being completed locally. A milestone will not be marked complete until it has been implemented, tested, documented, and verified.
+
+### Phase 0 — Application, Docker, CI, Security, and Database Reliability
+
+- [x] Create project requirements documentation.
+- [x] Implement the application and PostgreSQL integration.
+- [x] Implement automated application testing.
+- [x] Implement Docker and Docker Compose.
+- [x] Implement Continuous Integration.
+- [x] Implement dependency, source-code, secret, and container security scanning.
+- [x] Document container security findings.
+- [x] Implement Alembic database migrations.
+- [x] Integrate automatic migrations into Docker Compose startup.
+- [x] Safely baseline the existing PostgreSQL database.
+- [x] Preserve all five existing tickets during migration.
+- [x] Verify the original application after migration.
+- [x] Verify the final two-revision migration history against a fresh PostgreSQL database.
+- [x] Verify FastAPI startup and API access against the fresh database.
+- [x] Add the database readiness endpoint and automated success/failure tests.
+- [x] Verify controlled PostgreSQL outage and recovery.
+- [x] Verify PostgreSQL backup archive and isolated restore of all five tickets.
+- [x] Verify GitHub Actions after the readiness and test changes.
+
+### Phase 1 — Kubernetes with Minikube
+
+- [ ] Inspect the existing Minikube cluster and Kubernetes context.
+- [ ] Understand Kubernetes architecture, control plane, and worker nodes.
+- [ ] Understand Pods and Deployments.
+- [ ] Build the application image and make it available to Minikube.
+- [ ] Deploy FastAPI and PostgreSQL using Kubernetes resources.
+- [ ] Create Services and verify in-cluster communication.
+- [ ] Configure namespaces, ConfigMaps, and Secrets.
+- [ ] Configure PersistentVolumes and PersistentVolumeClaims for PostgreSQL.
+- [ ] Configure liveness and readiness probes.
+- [ ] Set resource requests and limits.
+- [ ] Practise scaling and Horizontal Pod Autoscaling where supported.
+- [ ] Verify application access and database persistence.
+
+### Phase 2 — Helm
+
+- [ ] Understand Helm charts and their structure.
+- [ ] Learn templates, values, and chart metadata.
+- [ ] Create a Helm chart for the application.
+- [ ] Configure environment-specific values.
+- [ ] Practise Helm install, upgrade, rollback, and uninstall.
+
+### Phase 3 — Terraform and Infrastructure as Code Practice
 
 - [ ] Understand Infrastructure as Code and Terraform.
-- [ ] Learn Terraform providers.
-- [ ] Learn resources and data sources.
-- [ ] Learn variables and outputs.
+- [ ] Learn providers, resources, data sources, variables, and outputs.
 - [ ] Understand Terraform state and state management.
-- [ ] Practise `terraform init`.
-- [ ] Practise `terraform fmt`.
-- [ ] Practise `terraform validate`.
-- [ ] Understand and inspect `terraform plan`.
-- [ ] Practise `terraform apply`.
-- [ ] Practise safe resource destruction using `terraform destroy`.
-- [ ] Organize reusable Terraform configurations.
-- [ ] Provision the required AWS project infrastructure.
+- [ ] Practise `terraform init`, `fmt`, `validate`, and `plan`.
+- [ ] Practise safe apply and cleanup in a local or sandbox environment.
+- [ ] Create a separate configuration and state for local practice.
+- [ ] Keep the historical AWS Terraform configuration and state separate.
 
-### Phase 3 — Ansible and Configuration Management
+### Phase 4 — Ansible and Configuration Management
 
 - [ ] Understand configuration management.
 - [ ] Learn Ansible inventory and configuration.
 - [ ] Learn playbooks, tasks, and modules.
 - [ ] Understand variables, handlers, and templates.
 - [ ] Learn Ansible roles.
-- [ ] Apply configuration management where appropriate.
+- [ ] Practise configuration management in a local Linux environment.
 
-### Phase 4 — Continuous Delivery and AWS Deployment
+### Phase 5 — GitOps with Argo CD
 
-- [ ] Understand the difference between CI and CD.
-- [ ] Publish verified Docker images to Amazon ECR.
-- [ ] Configure secure GitHub Actions authentication with AWS.
-- [ ] Configure appropriate IAM roles and permissions.
-- [ ] Deploy the application to the selected AWS runtime.
-- [ ] Automate deployment through GitHub Actions.
-- [ ] Add deployment health verification.
-- [ ] Practise rollout and rollback procedures.
+- [ ] Understand GitOps principles.
+- [ ] Install Argo CD in the local Kubernetes cluster.
+- [ ] Connect the application repository or deployment-manifest path.
+- [ ] Configure an Argo CD application.
+- [ ] Practise sync, drift detection, and self-healing.
+- [ ] Practise deployment rollback and recovery.
 
-### Phase 5 — Kubernetes
-
-- [ ] Understand Kubernetes architecture.
-- [ ] Learn Pods and Deployments.
-- [ ] Learn Services and service discovery.
-- [ ] Understand ConfigMaps and Secrets.
-- [ ] Learn readiness and liveness probes.
-- [ ] Understand resource requests and limits.
-- [ ] Practise autoscaling.
-- [ ] Deploy the application using Minikube.
-- [ ] Evaluate Amazon EKS.
-
-### Phase 6 — Helm
-
-- [ ] Understand Helm charts and their structure.
-- [ ] Learn chart templates and values files.
-- [ ] Create a Helm chart for the application.
-- [ ] Configure environment-specific values.
-- [ ] Practise Helm install, upgrade, rollback, and uninstall.
-
-### Phase 7 — Monitoring and Observability
+### Phase 6 — Monitoring, Logging, and Observability
 
 - [ ] Understand monitoring and observability fundamentals.
-- [ ] Implement infrastructure and application metrics.
-- [ ] Centralize application logs.
-- [ ] Configure dashboards and alerts.
-- [ ] Monitor application and database health.
+- [ ] Install Prometheus in the local cluster.
+- [ ] Install Grafana and configure dashboards.
+- [ ] Monitor application and Kubernetes metrics.
+- [ ] Centralize application and container logs.
+- [ ] Configure useful alerts.
 - [ ] Practise troubleshooting using logs and metrics.
 
-### Phase 8 — Reliability and Failure Testing
+### Phase 7 — Reliability and Final Demonstration
 
-- [ ] Introduce controlled application failures.
-- [ ] Test database unavailability.
+- [ ] Introduce controlled application and infrastructure failures.
 - [ ] Test container restart and recovery.
 - [ ] Verify persistent data after failures.
 - [ ] Practise backup and restore.
 - [ ] Document troubleshooting and recovery procedures.
+- [ ] Prepare architecture diagrams and deployment documentation.
+- [ ] Rehearse a complete project demonstration.
+
+### Phase 8 — Optional AWS Extension After Local Portfolio V1
+
+- [ ] Review AWS account access, eligibility, and cost controls before any deployment.
+- [ ] Revisit AWS IAM and least-privilege access.
+- [ ] Review VPC, subnets, route tables, Internet Gateways, and security groups.
+- [ ] Review EC2, ECR, RDS, ECS/EKS, and CloudWatch options.
+- [ ] Reconcile the historical AWS Terraform configuration before any reuse.
+- [ ] Estimate costs and plan cleanup before creating billable resources.
+- [ ] Deploy to real AWS only when a suitable account and budget are available.
 
 ### Phase 9 — AI Capabilities and Architecture Evolution
 
@@ -699,7 +622,7 @@ Topics covered:
 
 ---
 
-## 12. Working Rules
+## 14. Working Rules
 
 For every project milestone:
 
@@ -709,7 +632,8 @@ For every project milestone:
 4. Test the result.
 5. Troubleshoot failures.
 6. Document the outcome.
-7. Verify completion before proceeding.
+7. Commit and push the verified change.
+8. Confirm the relevant GitHub Actions result before proceeding.
 
 ### Development Environment Rules
 
@@ -717,10 +641,10 @@ For every project milestone:
 - Use Windows Git Bash for Git and development commands.
 - Use the Windows Python virtual environment for Python development.
 - Use Docker Desktop for containers and PostgreSQL.
+- Use the existing Minikube installation for local Kubernetes practice.
 - Keep `.env` and all credentials out of Git.
 - Do not delete persistent database volumes unless explicitly intended.
 - Back up existing databases before schema migrations.
 - Do not mark a task complete without verification.
+- Do not run the historical AWS Terraform configuration against another account or environment.
 - Do not advance to the next major project phase until the current phase is complete.
----
-

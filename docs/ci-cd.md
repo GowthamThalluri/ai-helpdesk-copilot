@@ -2,9 +2,9 @@
 
 ## 1. Overview
 
-AI Helpdesk Copilot uses GitHub Actions to automate application testing, dependency auditing, code security scanning, Docker image building and container vulnerability scanning.
+AI Helpdesk Copilot uses GitHub Actions to automate application testing, dependency auditing, source-code security scanning, secret scanning, Docker image building, and container vulnerability scanning.
 
-The current implementation covers **Continuous Integration (CI)**. Continuous Delivery/Deployment (CD) is planned for a later milestone.
+The current implementation covers **Continuous Integration (CI)**. Continuous Delivery/Deployment (CD) is planned for a later milestone. The main project is currently being completed locally; AWS deployment is a later optional extension.
 
 ## 2. Workflow Triggers
 
@@ -28,41 +28,33 @@ The workflow contains five jobs.
 - Sets up Python 3.13.
 - Installs development dependencies.
 - Runs the automated application tests.
-- Verifies important application functionality.
+- The current locally verified test suite contains 17 passing tests.
 
-Command:
-
-`python -m pytest -v`
-
-### Job 2: Python Dependency Audit
+### Job 2: Dependency Audit
 
 **Tool:** pip-audit
 
-- Installs pip-audit.
-- Checks the Python dependencies listed in `requirements-dev.txt`.
-- Reports known vulnerabilities in dependencies.
+- Audits Python dependencies for known vulnerabilities.
+- Fails the job when the configured audit detects a blocking dependency issue.
 
-Command:
-
-`python -m pip_audit -r requirements-dev.txt`
-
-### Job 3: Repository Secret Scanning
+### Job 3: Secret Scanning
 
 **Tool:** Gitleaks
 
-- Checks repository history for accidentally committed secrets.
-- Uses full Git history during checkout.
-- Prevents secret-scanning comments from being automatically posted.
+- Scans the repository for accidentally committed secrets.
+- Produces a SARIF report artifact.
 
-### Job 4: Python Code Security Scanning
+### Job 4: Python Source-Code Security Scan
 
 **Tool:** Bandit
 
-- Scans the Python backend for common security issues.
-
 Command:
 
-`python -m bandit -r backend`
+```bash
+python -m bandit -r backend
+```
+
+This job checks the backend Python source code for common security issues.
 
 ### Job 5: Docker Image Build and Security Scanning
 
@@ -84,15 +76,13 @@ This job runs only after the four preceding jobs succeed.
 - Uploads the report as a GitHub Actions artifact.
 - Retains the report for 30 days.
 - Runs a separate security gate that fails for fixable HIGH or CRITICAL findings.
+- Keeps unfixed findings visible in the complete report.
 
-Unfixed findings remain visible in the complete report.
-
+The security gate is not a guarantee that the image contains zero known vulnerabilities. The complete Trivy report remains available for review.
 
 ## 4. Pipeline Execution Order
 
-The four quality and security jobs run independently in parallel.
-
-The Docker build and image-scanning job starts only after all four jobs succeed.
+The four quality and security jobs run independently in parallel. The Docker build and image-scanning job starts only after all four jobs succeed.
 
 ```mermaid
 flowchart TD
@@ -111,11 +101,12 @@ flowchart TD
     H --> I["Upload JSON Report"]
     I --> J["Trivy Security Gate"]
 ```
+
 ## 5. Current CI Status
 
-The latest Trivy-enabled workflow completed successfully in GitHub Actions.
+The latest workflow triggered by commit `89567e6` on branch `main` completed successfully, as confirmed during the project work on November 12, 2026. The workflow run number and duration were not recorded in the available verification notes.
 
-Latest successful workflow run:
+An earlier successful Trivy-enabled workflow run was recorded as:
 
 - Run: #19
 - Commit: `b98883f`
@@ -124,44 +115,50 @@ Latest successful workflow run:
 - Duration: 1 minute 31 seconds
 - Artifacts: 3
 
-The container security findings are documented separately in `docs/security-scan.md`.
-
-A successful pipeline does not guarantee that the Docker image contains no known vulnerabilities. Unfixed findings remain subject to security review.
-
 ### November 12, 2026 — zlib Security Fix
 
 An earlier CI scan identified two fixable HIGH vulnerabilities in Debian's `zlib1g` package: `CVE-2026-76844` and `CVE-2026-85091`.
 
-The Dockerfile was updated to upgrade `zlib1g` to `1:1.3.dfsg+really1.3.1-1+deb13u1`. The local image package version was verified, the 15-test Python suite passed, and GitHub Actions Run #19 passed the Docker image security gate.
+The Dockerfile was updated to upgrade `zlib1g` to `1:1.3.dfsg+really1.3.1-1+deb13u1`. The local image package version was verified, the 15-test Python suite passed at the time of that fix, and GitHub Actions Run #19 passed the Docker image security gate.
 
 The complete Trivy JSON report remains available as a workflow artifact. The blocking gate checks fixable HIGH and CRITICAL findings; it is not a zero-vulnerability guarantee.
+
+### Latest Readiness and Reliability Test Changes
+
+The application added a database readiness endpoint at `/ready`, with automated tests for successful database access and simulated database failure. The local suite subsequently reported 17 passing tests. GitHub Actions completed successfully for commit `89567e6`.
+
+The container security findings are documented separately in `docs/security-scan.md`.
 
 ## 6. Current CD Status
 
 Continuous Delivery/Deployment is not yet implemented.
 
-The following tasks remain planned:
+The following tasks remain planned for a later optional deployment phase:
 
-- Publish the verified Docker image to Amazon ECR.
-- Prepare AWS infrastructure.
-- Deploy the application to the selected AWS runtime.
-- Automate deployment through GitHub Actions.
+- Publish the verified Docker image to a container registry such as Amazon ECR.
+- Configure secure authentication for the selected deployment environment.
+- Prepare the required deployment infrastructure.
+- Deploy the application to the selected runtime.
+- Automate deployment through GitHub Actions or a GitOps workflow.
 - Verify application health after deployment.
+- Introduce deployment rollback procedures.
+
+The immediate project path is local Kubernetes with Minikube, followed by Helm, local Terraform/Ansible practice, Argo CD, and Prometheus/Grafana. Real AWS deployment is deferred until after the local portfolio version is complete.
 
 ## 7. Future Improvements
 
-- Add automated Docker image publishing.
-- Add secure AWS authentication for GitHub Actions.
-- Automate AWS deployment.
-- Introduce deployment verification and rollback procedures.
-- Extend monitoring, logging and alerting.
+- Add automated image publishing when the deployment target is selected.
+- Add secure identity and permission configuration for the chosen environment.
+- Automate deployment and verification.
+- Introduce deployment rollback procedures.
+- Extend monitoring, logging, and alerting.
 
 ## 8. Related Documentation
 
-- `README.md` — Project overview and setup instructions.
-- `docs/progress.md` — Project development milestones.
-- `docs/security-scan.md` — Container vulnerability scanning and findings.
+- `README.md` — Project overview, features, local setup, and roadmap.
+- `docs/progress.md` — Completed work, current status, and roadmap.
+- `docs/security-scan.md` — Trivy findings and container security decisions.
 
 ---
 
-**Current milestone:** Continuous Integration implemented; Continuous Delivery/Deployment pending.
+**Current milestone:** Continuous Integration implemented and verified. Continuous Delivery/Deployment remains pending; the current application deployment learning path is local Kubernetes.
