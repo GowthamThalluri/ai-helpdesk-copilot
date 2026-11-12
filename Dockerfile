@@ -5,6 +5,11 @@ FROM python:3.13-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
+# Update vulnerable Debian OS packages.
+RUN apt-get update \
+    && apt-get install --only-upgrade -y --no-install-recommends zlib1g \
+    && rm -rf /var/lib/apt/lists/*
+
 # 3. Set the application's working directory.
 WORKDIR /app
 
