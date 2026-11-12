@@ -1,10 +1,10 @@
 # AI Helpdesk Copilot — Project Progress
 
-**Last updated:** 2 November 2026
+**Last updated:** 12 November 2026
 
 ## 1. Overall Project Status
 
-The AI Helpdesk Copilot application has been implemented and verified locally using Docker Compose.
+The AI Helpdesk Copilot application has been implemented and verified locally using Docker Compose. Its Terraform-managed AWS network foundation is also committed to GitHub.
 
 The project has completed the following major milestones:
 
@@ -13,16 +13,18 @@ The project has completed the following major milestones:
 - Application hardening.
 - Docker and Docker Compose.
 - Alembic database schema migrations.
+- Fresh-database migration and application startup verification.
+- Terraform-managed AWS network foundation.
 - Continuous Integration using GitHub Actions.
 - Dependency, source-code, secret, and container security scanning.
 - Container runtime hardening.
 - Security and project documentation.
 
-**Current implementation stage:** Application + Docker + Docker Compose + Database Migrations + Continuous Integration + Security.
+**Current implementation stage:** Application + Docker + Docker Compose + Database Migrations + Continuous Integration + Security + Terraform AWS Network Foundation.
 
-**Not yet implemented:** Continuous Delivery/Deployment to AWS.
+**Not yet implemented:** Amazon ECR image publishing and application deployment to AWS.
 
-The next technical phase is AWS fundamentals and project infrastructure architecture, followed by Terraform.
+The next technical phase is to extend the Terraform network foundation toward an application deployment architecture, after reviewing AWS credits, IAM permissions, and expected costs.
 
 ---
 
@@ -202,7 +204,7 @@ python -m pytest -q
 
 ---
 
-## 6. Database Schema Migrations Using Alembic — Implemented and Verified Locally
+## 6. Database Schema Migrations Using Alembic — Implemented and Verified
 
 ### Why Migrations Were Needed
 
@@ -262,6 +264,23 @@ The unnecessary secondary index was removed from the current model.
 However, the migration history preserves the original schema as Revision 1 and removes the redundant index through Revision 2.
 
 This allows existing and fresh databases to reach the same final schema through a consistent migration history.
+
+### Fresh-Database Migration and Application Verification — 12 November 2026
+
+A separate temporary PostgreSQL database was used to verify the complete migration sequence without modifying the existing application database.
+
+- Confirmed that the temporary database initially contained no tables.
+- Executed `alembic upgrade head` using the application Docker image.
+- Verified that revisions `e91d904ff8b7` and `f1b9ab28aaf3` ran successfully in order.
+- Confirmed that `alembic current` reported `f1b9ab28aaf3 (head)`.
+- Inspected the resulting `tickets` table and confirmed its seven columns and primary-key index.
+- Started a separate FastAPI container against the migrated database.
+- Verified `GET /health` returned HTTP 200 with `{"status":"healthy"}`.
+- Verified `GET /tickets` returned HTTP 200 with an empty list, as expected for a fresh database.
+- Removed only the temporary containers, temporary anonymous volume, and test network.
+- Rechecked the original Compose application: PostgreSQL remained healthy, FastAPI returned HTTP 200, and all five original tickets remained present.
+
+**Status:** Fresh-database migration and application startup verification completed.
 
 ### Docker Compose Migration Integration
 
@@ -390,15 +409,13 @@ The project uses GitHub Actions for automated checks.
 
 | Detail | Result |
 |---|---|
-| Implementation commit | `224e60c` |
-| Implementation workflow run | #14 — Success |
-| Documentation commit | `3f14e09` |
-| Documentation workflow run | #16 — Success |
+| Latest successful commit | `b98883f` |
+| Workflow run | #19 — Success |
 | Branch | `main` |
-| Latest run duration | 1 minute 36 seconds |
-| Latest run artifacts | 3 |
+| Duration | 1 minute 31 seconds |
+| Artifacts | 3 |
 
-**Status:** Both implementation and documentation commits successfully verified through GitHub Actions.
+**Status:** GitHub Actions Run #19 successfully verified the latest implementation commit.
 
 The current workflow contains five jobs:
 
@@ -447,10 +464,15 @@ The implementation is documented in:
 - Configured JSON vulnerability report generation.
 - Configured report artifact retention.
 - Configured a CI gate for fixable HIGH and CRITICAL findings.
+- Updated Debian `zlib1g` to the fixed package version after Trivy identified two HIGH vulnerabilities.
 - Removed pip from the final runtime image.
 - Configured a non-root application user.
 
 Unresolved Debian operating-system package findings have been documented.
+
+On 12 November 2026, the Trivy scan identified two fixable HIGH findings in Debian `zlib1g`: `CVE-2026-76844` and `CVE-2026-85091`. The Dockerfile was updated to upgrade `zlib1g` to `1:1.3.dfsg+really1.3.1-1+deb13u1`. The local image package version was verified, and GitHub Actions Run #19 passed the Trivy blocking gate after this change.
+
+The complete Trivy report remains important: passing the blocking gate does not mean that the image has zero known vulnerabilities.
 
 A successful Trivy gate does not mean that every vulnerability is absent. The documented scan policy distinguishes fixable findings from unfixed findings.
 
@@ -481,7 +503,7 @@ The project documentation consists of:
 - Documented Alembic migration revisions and Docker Compose integration.
 - Documented CI and security implementation.
 - Committed and pushed documentation updates.
-- Verified GitHub Actions run #16 successfully.
+- Verified GitHub Actions run #19 successfully for commit `b98883f`.
 
 **Status:** Documentation updates published to GitHub.
 
@@ -494,7 +516,6 @@ The project documentation consists of:
 - Additional database failure and transaction-rollback testing.
 - Automated browser/UI testing.
 - Additional backup and restore verification.
-- Fresh-database verification using the final two-revision migration history.
 
 ### Continuous Delivery/Deployment
 
@@ -511,7 +532,7 @@ The project documentation consists of:
 - Review IAM and least-privilege access.
 - Understand VPC networking.
 - Plan secure and cost-effective application hosting.
-- Prepare infrastructure using Terraform.
+- Extend the committed Terraform network foundation with application runtime resources after IAM and AWS cost review.
 
 ### Kubernetes and Helm
 

@@ -113,18 +113,28 @@ flowchart TD
 ```
 ## 5. Current CI Status
 
-The Trivy-enabled workflow completed successfully in GitHub Actions.
+The latest Trivy-enabled workflow completed successfully in GitHub Actions.
 
-Example successful workflow run:
+Latest successful workflow run:
 
-- Run: #11
-- Commit: `b137e01`
+- Run: #19
+- Commit: `b98883f`
+- Branch: `main`
 - Status: Successful
-- Duration: 1 minute 28 seconds
+- Duration: 1 minute 31 seconds
+- Artifacts: 3
 
 The container security findings are documented separately in `docs/security-scan.md`.
 
 A successful pipeline does not guarantee that the Docker image contains no known vulnerabilities. Unfixed findings remain subject to security review.
+
+### November 12, 2026 — zlib Security Fix
+
+An earlier CI scan identified two fixable HIGH vulnerabilities in Debian's `zlib1g` package: `CVE-2026-76844` and `CVE-2026-85091`.
+
+The Dockerfile was updated to upgrade `zlib1g` to `1:1.3.dfsg+really1.3.1-1+deb13u1`. The local image package version was verified, the 15-test Python suite passed, and GitHub Actions Run #19 passed the Docker image security gate.
+
+The complete Trivy JSON report remains available as a workflow artifact. The blocking gate checks fixable HIGH and CRITICAL findings; it is not a zero-vulnerability guarantee.
 
 ## 6. Current CD Status
 

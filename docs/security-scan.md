@@ -61,6 +61,23 @@ Unfixed findings remain visible in the complete report.
 A successful CI run does not mean that the image is
 free from all known vulnerabilities.
 
+## Follow-Up Scan — 12 November 2026
+
+GitHub Actions Run #19, commit `b98883f`, completed successfully after a Docker image security fix.
+
+The preceding CI scan identified two fixable HIGH Debian findings in `zlib1g`:
+
+| Vulnerability | Installed version | Fixed version |
+|---|---|---|
+| `CVE-2026-76844` | `1:1.3.dfsg+really1.3.1-1+b1` | `1:1.3.dfsg+really1.3.1-1+deb13u1` |
+| `CVE-2026-85091` | `1:1.3.dfsg+really1.3.1-1+b1` | `1:1.3.dfsg+really1.3.1-1+deb13u1` |
+
+The Dockerfile now upgrades the installed Debian `zlib1g` package during image construction.
+
+Local verification confirmed that image `ai-helpdesk-copilot:1.2` contains version `1:1.3.dfsg+really1.3.1-1+deb13u1`. The Python test suite also passed with 15 tests.
+
+GitHub Actions Run #19 passed the configured Trivy blocking gate for fixable HIGH and CRITICAL findings. This does not establish that the image contains zero vulnerabilities; review the complete Trivy JSON artifact for remaining findings.
+
 ## Follow-Up Actions
 
 - Re-scan the image after base-image updates.
