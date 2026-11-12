@@ -1,4 +1,5 @@
-
+from sqlalchemy import select, text
+from sqlalchemy.exc import SQLAlchemyError
 from pathlib import Path
 from backend.logging_config import logger
 
@@ -59,6 +60,21 @@ def api_home():
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
+@app.get("/ready")
+def readiness_check(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+        return {
+            "status": "ready",
+            "database": "connected"
+        }
+
+    except SQLAlchemyError:
+        logger.exception("Database readiness check failed")
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable"
+        )
 
 
 # --------------------------------------------------

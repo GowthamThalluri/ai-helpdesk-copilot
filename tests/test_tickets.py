@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -267,3 +268,31 @@ def test_create_ticket_rejects_whitespace_category(client):
     )
 
     assert response.status_code == 422
+def test_readiness_endpoint(client):
+    response = client.get("/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ready",
+        "database": "connected",
+    }
+def test_readiness_endpoint_returns_503_when_database_fails(client):
+    class UnavailableDatabase:
+        def execute(self, statement):
+            raise SQLAlchemyError("Simulated database failure")
+
+    def override_get_db():
+        yield UnavailableDatabase()
+
+    original_override = app.dependency_overrides[get_db]
+    app.dependency_overrides[get_db] = override_get_db
+
+    try:
+        response = client.get("/ready")
+
+        assert response.status_code == 503
+        assert response.json() == {
+            "detail": "Database unavailable"
+        }
+    finally:
+        app.dependency_overrides[get_db] = original_override
