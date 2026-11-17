@@ -1,0 +1,83 @@
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: helpdesk-api
+  namespace: helpdesk
+  labels:
+    app: helpdesk-api
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: helpdesk-api
+
+  template:
+    metadata:
+      labels:
+        app: helpdesk-api
+
+    spec:
+      containers:
+        - name: helpdesk-api
+          image: ai-helpdesk-copilot:1.3
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: helpdesk-config
+            - secretRef:
+                name: helpdesk-db-secret
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 12
+
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+
+
+
+# Section	Purpose
+# kind: Deployment	Tells Kubernetes to create a Deployment.
+# replicas: 1	Maintains one FastAPI Pod.
+# selector	Identifies which Pods the Deployment manages.
+# template	Defines how Kubernetes creates those Pods.
+# image	Uses our existing FastAPI image.
+# IfNotPresent	Uses the image already loaded into Minikube.
+# containerPort	Documents the application's listening port.
+# envFrom	Imports environment variables from ConfigMap and Secret.
+# resources	Sets CPU and memory requests and limits.
