@@ -1,0 +1,17 @@
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "ai-helpdesk.fullname" . }}-test-connection"
+  labels:
+    app.kubernetes.io/instance: "{{ .Release.Name }}"
+    app.kubernetes.io/name: "{{ include "ai-helpdesk.name" . }}-test"
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "ai-helpdesk.fullname" . }}:{{ .Values.service.port }}']
+  restartPolicy: Never

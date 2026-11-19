@@ -1,0 +1,31 @@
+# AI Helpdesk - Staging Environment
+
+replicaCount: 2
+
+image:
+  repository: ai-helpdesk-copilot
+  tag: "1.3"
+  pullPolicy: IfNotPresent
+
+containerPort: 8000
+
+service:
+  type: ClusterIP
+  port: 80
+
+envFrom:
+  - configMapRef:
+      name: helpdesk-config-staging
+  - secretRef:
+      name: helpdesk-db-secret-staging
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
